@@ -1,0 +1,518 @@
+"""Per-task aggregation, bootstrap verdict, and Markdown/JSON rendering."""
+
+from __future__ import annotations
+
+import json
+import random
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
+from typing import Literal
+
+from agentcost.errors import CompareError, PriceError
+from agentcost.models import (
+    ArmReport,
+    Event,
+    EventStatus,
+    Interval,
+    Quantiles,
+    Report,
+    Verdict,
+)
+from agentcost.pricing import PriceTable
+
+SCHEMA_VERSION = "0.1"
+METRIC = "cost_per_solved_task"
+MIN_TASKS = 5
+DEFAULT_SEED = 42
+DEFAULT_RESAMPLES = 1000
+DEFAULT_LEVEL = 0.95
+_TIE = Decimal("1e-9")
+_JSON_QUANTUM = Decimal("0.000000000001")
+
+
+def compare(
+    events: Sequence[Event],
+    variants: tuple[str, str] | Sequence[str],
+    prices: PriceTable | None = None,
+    *,
+    seed: int = DEFAULT_SEED,
+    resamples: int = DEFAULT_RESAMPLES,
+    level: float = DEFAULT_LEVEL,
+    on_missing: Literal["error", "zero"] = "error",
+) -> Report:
+    """Compare two variants on cost per solved task.
+
+    A task succeeds when at least one of its runs succeeds. A run fails when
+    any of its events has status ``error``. Failed runs are included in cost,
+    tokens, and steps, and are also reported on their own.
+
+    The verdict is about the first variant relative to the second. Lower cost
+    per solved task is better. With fewer than five tasks in either arm, or
+    when the bootstrap percentile intervals overlap, the verdict is
+    ``inconclusive``. Equal point estimates are ``no_difference``.
+    """
+    if len(variants) != 2:
+        raise CompareError("compare expects exactly two variants")
+    left, right = variants[0], variants[1]
+    if left == right:
+        raise CompareError("variants must be different")
+    if not events:
+        raise CompareError("no events to compare")
+    if resamples < 1:
+        raise CompareError("resamples must be >= 1")
+    if not 0 < level < 1:
+        raise CompareError("bootstrap level must be between 0 and 1")
+    table = prices if prices is not None else PriceTable.bundled()
+    selected = [event for event in events if event.variant in {left, right}]
+    if on_missing == "error":
+        _require_prices(selected, table)
+    arms = (
+        _arm_report(selected, left, table, on_missing),
+        _arm_report(selected, right, table, on_missing),
+    )
+    raw_intervals = {
+        arms[0].variant: _interval_for(selected, left, table, on_missing, seed, resamples, level),
+        arms[1].variant: _interval_for(selected, right, table, on_missing, seed, resamples, level),
+    }
+    verdict, reason = _verdict(arms[0], arms[1], raw_intervals, level)
+    intervals = {key: value for key, value in raw_intervals.items() if value is not None}
+    return Report(
+        schema_version=SCHEMA_VERSION,
+        price_table_version=table.version,
+        currency=table.currency,
+        variants=(left, right),
+        metric=METRIC,
+        verdict=verdict,
+        verdict_reason=reason,
+        arms=arms,
+        bootstrap_seed=seed,
+        bootstrap_resamples=resamples,
+        bootstrap_level=level,
+        intervals=intervals,
+    )
+
+
+def render_json(report: Report) -> str:
+    return json.dumps(_report_dict(report), indent=2) + "\n"
+
+
+def render_markdown(report: Report) -> str:
+    left, right = report.arms
+    headers = (left.variant, right.variant)
+    rows = [
+        ("Tasks", str(left.tasks), str(right.tasks)),
+        ("Successful tasks", str(left.successful_tasks), str(right.successful_tasks)),
+        ("Success rate", _fmt_rate(left.success_rate), _fmt_rate(right.success_rate)),
+        (
+            "Cost per solved task",
+            _fmt_money(left.cost_per_solved_task),
+            _fmt_money(right.cost_per_solved_task),
+        ),
+        (
+            "Cost per task, median (p25–p75)",
+            _fmt_span(left.cost, money=True),
+            _fmt_span(right.cost, money=True),
+        ),
+        ("Tokens per task, median (p25–p75)", _fmt_span(left.tokens), _fmt_span(right.tokens)),
+        ("Steps per task, median (p25–p75)", _fmt_span(left.steps), _fmt_span(right.steps)),
+        ("Runs", str(left.runs), str(right.runs)),
+        ("Failed runs", str(left.failed_runs), str(right.failed_runs)),
+        ("Failed-run cost", _fmt_money(left.failed_run_cost), _fmt_money(right.failed_run_cost)),
+        ("Failed-run tokens", str(left.failed_run_tokens), str(right.failed_run_tokens)),
+    ]
+    unpriced = sorted(set(left.unpriced_models) | set(right.unpriced_models))
+    lines = [
+        "# agentcost report",
+        "",
+        f"**Verdict:** {report.verdict.value}",
+        "",
+        report.verdict_reason,
+        "",
+        "Lower cost per solved task is better. The denominator is solved tasks. "
+        "Failed runs stay in the numerator and in the per-task distributions, and "
+        "are also listed on their own rows.",
+        "",
+        f"| Metric | {headers[0]} | {headers[1]} |",
+        "| --- | ---: | ---: |",
+    ]
+    lines.extend(f"| {name} | {a} | {b} |" for name, a, b in rows)
+    lines.extend(
+        [
+            "",
+            f"Price table `{report.price_table_version}` "
+            f"({report.currency} per 1,000,000 tokens). "
+            f"Bootstrap {report.bootstrap_level:.0%} intervals, "
+            f"{report.bootstrap_resamples} resamples, seed {report.bootstrap_seed}.",
+        ]
+    )
+    if unpriced:
+        lines.append(
+            "Unpriced models treated as zero cost: "
+            + ", ".join(f"`{name}`" for name in unpriced)
+            + "."
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+@dataclass
+class _Run:
+    task_id: str
+    variant: str
+    run_id: str
+    cost: Decimal = Decimal(0)
+    tokens: int = 0
+    steps: int = 0
+    ok: bool = True
+    unpriced: set[str] = field(default_factory=set)
+
+
+def _require_prices(events: Sequence[Event], prices: PriceTable) -> None:
+    missing: set[str] = set()
+    for event in events:
+        if event.input_tokens + event.output_tokens <= 0:
+            continue
+        if not event.model:
+            missing.add("<no model>")
+            continue
+        if prices.lookup(event.model) is None:
+            missing.add(event.model)
+    if missing:
+        names = ", ".join(sorted(missing))
+        raise PriceError(
+            f"No price for model(s): {names}. "
+            "Add them to a price file or override, or set on_missing='zero'."
+        )
+
+
+def _arm_report(
+    events: Sequence[Event],
+    variant: str,
+    prices: PriceTable,
+    on_missing: Literal["error", "zero"],
+) -> ArmReport:
+    tasks = _tasks(events, variant, prices, on_missing)
+    if not tasks:
+        raise CompareError(f"variant {variant!r} has no events in the trace")
+    successful = [task for task in tasks if task.success]
+    total_cost = sum((task.cost for task in tasks), start=Decimal(0))
+    failed_cost = sum((task.failed_cost for task in tasks), start=Decimal(0))
+    failed_tokens = sum(task.failed_tokens for task in tasks)
+    solved = len(successful)
+    cost_per = (total_cost / Decimal(solved)) if solved else None
+    unpriced = tuple(sorted({model for task in tasks for model in task.unpriced}))
+    return ArmReport(
+        variant=variant,
+        tasks=len(tasks),
+        successful_tasks=solved,
+        runs=sum(task.runs for task in tasks),
+        successful_runs=sum(task.successful_runs for task in tasks),
+        failed_runs=sum(task.failed_runs for task in tasks),
+        success_rate=Decimal(solved) / Decimal(len(tasks)),
+        total_cost=total_cost,
+        failed_run_cost=failed_cost,
+        failed_run_tokens=failed_tokens,
+        cost_per_solved_task=cost_per,
+        cost=_quantiles([task.cost for task in tasks]),
+        tokens=_quantiles([Decimal(task.tokens) for task in tasks]),
+        steps=_quantiles([Decimal(task.steps) for task in tasks]),
+        unpriced_models=unpriced,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _Task:
+    task_id: str
+    cost: Decimal
+    tokens: int
+    steps: int
+    success: bool
+    runs: int
+    successful_runs: int
+    failed_runs: int
+    failed_cost: Decimal
+    failed_tokens: int
+    unpriced: frozenset[str]
+
+
+def _tasks(
+    events: Sequence[Event],
+    variant: str,
+    prices: PriceTable,
+    on_missing: Literal["error", "zero"],
+) -> list[_Task]:
+    runs: dict[tuple[str, str], _Run] = {}
+    for event in events:
+        if event.variant != variant:
+            continue
+        key = (event.task_id, event.run_id)
+        run = runs.get(key)
+        if run is None:
+            run = _Run(task_id=event.task_id, variant=variant, run_id=event.run_id)
+            runs[key] = run
+        cost, unpriced = _price_event(event, prices, on_missing)
+        run.cost += cost
+        run.tokens += event.input_tokens + event.output_tokens
+        run.steps += 1
+        if event.status is EventStatus.ERROR:
+            run.ok = False
+        if unpriced:
+            run.unpriced.add(unpriced)
+    by_task: dict[str, list[_Run]] = {}
+    for run in runs.values():
+        by_task.setdefault(run.task_id, []).append(run)
+    tasks: list[_Task] = []
+    for task_id in sorted(by_task):
+        grouped = by_task[task_id]
+        failed = [run for run in grouped if not run.ok]
+        tasks.append(
+            _Task(
+                task_id=task_id,
+                cost=sum((run.cost for run in grouped), start=Decimal(0)),
+                tokens=sum(run.tokens for run in grouped),
+                steps=sum(run.steps for run in grouped),
+                success=any(run.ok for run in grouped),
+                runs=len(grouped),
+                successful_runs=sum(1 for run in grouped if run.ok),
+                failed_runs=len(failed),
+                failed_cost=sum((run.cost for run in failed), start=Decimal(0)),
+                failed_tokens=sum(run.tokens for run in failed),
+                unpriced=frozenset(model for run in grouped for model in run.unpriced),
+            )
+        )
+    return tasks
+
+
+def _price_event(
+    event: Event,
+    prices: PriceTable,
+    on_missing: Literal["error", "zero"],
+) -> tuple[Decimal, str | None]:
+    if event.input_tokens + event.output_tokens <= 0:
+        return Decimal(0), None
+    price = prices.lookup(event.model) if event.model else None
+    if price is None:
+        if on_missing == "zero":
+            return Decimal(0), event.model or "<no model>"
+        name = event.model or "<no model>"
+        raise PriceError(f"No price for model(s): {name}.")
+    cost = (
+        Decimal(event.input_tokens) * price.input_per_million
+        + Decimal(event.output_tokens) * price.output_per_million
+    ) / Decimal(1_000_000)
+    return cost, None
+
+
+def _interval_for(
+    events: Sequence[Event],
+    variant: str,
+    prices: PriceTable,
+    on_missing: Literal["error", "zero"],
+    seed: int,
+    resamples: int,
+    level: float,
+) -> Interval | None:
+    tasks = _tasks(events, variant, prices, on_missing)
+    if not tasks:
+        return None
+    return _bootstrap(
+        [task.cost for task in tasks],
+        [task.success for task in tasks],
+        seed=seed,
+        resamples=resamples,
+        level=level,
+    )
+
+
+def _bootstrap(
+    costs: Sequence[Decimal],
+    solved: Sequence[bool],
+    *,
+    seed: int,
+    resamples: int,
+    level: float,
+) -> Interval | None:
+    rng = random.Random(seed)
+    count = len(costs)
+    samples: list[Decimal] = []
+    for _ in range(resamples):
+        total = Decimal(0)
+        successes = 0
+        for _ in range(count):
+            index = rng.randrange(count)
+            total += costs[index]
+            if solved[index]:
+                successes += 1
+        if successes:
+            samples.append(total / Decimal(successes))
+    if len(samples) < max(100, resamples // 2):
+        return None
+    alpha = (1 - level) / 2
+    return Interval(low=_quantile(samples, alpha), high=_quantile(samples, 1 - alpha))
+
+
+def _quantiles(values: Sequence[Decimal]) -> Quantiles:
+    return Quantiles(
+        p25=_quantile(values, 0.25),
+        median=_quantile(values, 0.5),
+        p75=_quantile(values, 0.75),
+    )
+
+
+def _quantile(values: Sequence[Decimal], probability: float) -> Decimal:
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return ordered[0]
+    rank = Decimal(len(ordered) - 1) * Decimal(str(probability))
+    low = int(rank.to_integral_value(rounding=ROUND_FLOOR))
+    high = int(rank.to_integral_value(rounding=ROUND_CEILING))
+    if low == high:
+        return ordered[low]
+    weight = rank - Decimal(low)
+    return ordered[low] * (Decimal(1) - weight) + ordered[high] * weight
+
+
+def _verdict(
+    left: ArmReport,
+    right: ArmReport,
+    intervals: Mapping[str, Interval | None],
+    level: float,
+) -> tuple[Verdict, str]:
+    if left.tasks < MIN_TASKS or right.tasks < MIN_TASKS:
+        return (
+            Verdict.INCONCLUSIVE,
+            f"Fewer than 5 tasks in at least one variant "
+            f"({left.variant}={left.tasks}, {right.variant}={right.tasks}).",
+        )
+    if left.cost_per_solved_task is None or right.cost_per_solved_task is None:
+        missing = [arm.variant for arm in (left, right) if arm.cost_per_solved_task is None]
+        if len(missing) == 1:
+            detail = f"{missing[0]} has no solved tasks"
+        else:
+            detail = f"{missing[0]} and {missing[1]} have no solved tasks"
+        return (
+            Verdict.INCONCLUSIVE,
+            f"{detail}, so cost per solved task is undefined.",
+        )
+    if _same(left.cost_per_solved_task, right.cost_per_solved_task):
+        return Verdict.NO_DIFFERENCE, "Cost per solved task is the same for both variants."
+    left_interval = intervals.get(left.variant)
+    right_interval = intervals.get(right.variant)
+    percent = f"{level:.0%}"
+    if left_interval is None or right_interval is None:
+        return (
+            Verdict.INCONCLUSIVE,
+            "Bootstrap could not estimate a stable interval because too many "
+            "resamples contained no solved task.",
+        )
+    if left_interval.low <= right_interval.high and right_interval.low <= left_interval.high:
+        return (
+            Verdict.INCONCLUSIVE,
+            f"Bootstrap {percent} intervals overlap "
+            f"({left.variant} [{_fmt_num(left_interval.low)}, {_fmt_num(left_interval.high)}], "
+            f"{right.variant} [{_fmt_num(right_interval.low)}, {_fmt_num(right_interval.high)}]).",
+        )
+    if left_interval.high < right_interval.low:
+        return (
+            Verdict.BETTER,
+            f"{left.variant} is cheaper per solved task than {right.variant}; "
+            f"bootstrap {percent} intervals do not overlap.",
+        )
+    return (
+        Verdict.WORSE,
+        f"{left.variant} is more expensive per solved task than {right.variant}; "
+        f"bootstrap {percent} intervals do not overlap.",
+    )
+
+
+def _same(left: Decimal, right: Decimal) -> bool:
+    scale = max(abs(left), abs(right), Decimal(1))
+    return abs(left - right) <= scale * _TIE
+
+
+def _report_dict(report: Report) -> dict[str, object]:
+    return {
+        "schema_version": report.schema_version,
+        "price_table_version": report.price_table_version,
+        "currency": report.currency,
+        "compare": list(report.variants),
+        "metric": report.metric,
+        "verdict": report.verdict.value,
+        "verdict_reason": report.verdict_reason,
+        "bootstrap": {
+            "seed": report.bootstrap_seed,
+            "resamples": report.bootstrap_resamples,
+            "level": report.bootstrap_level,
+        },
+        "arms": {arm.variant: _arm_dict(arm) for arm in report.arms},
+        "intervals": {
+            name: {"low": _json_number(interval.low), "high": _json_number(interval.high)}
+            for name, interval in report.intervals.items()
+        },
+    }
+
+
+def _arm_dict(arm: ArmReport) -> dict[str, object]:
+    return {
+        "tasks": arm.tasks,
+        "successful_tasks": arm.successful_tasks,
+        "runs": arm.runs,
+        "successful_runs": arm.successful_runs,
+        "failed_runs": arm.failed_runs,
+        "success_rate": _json_number(arm.success_rate),
+        "total_cost": _json_number(arm.total_cost),
+        "failed_run_cost": _json_number(arm.failed_run_cost),
+        "failed_run_tokens": arm.failed_run_tokens,
+        "cost_per_solved_task": None
+        if arm.cost_per_solved_task is None
+        else _json_number(arm.cost_per_solved_task),
+        "unpriced_models": list(arm.unpriced_models),
+        "per_task": {
+            "cost": _quantile_dict(arm.cost),
+            "tokens": _quantile_dict(arm.tokens),
+            "steps": _quantile_dict(arm.steps),
+        },
+    }
+
+
+def _quantile_dict(quantiles: Quantiles) -> dict[str, int | float]:
+    return {
+        "p25": _json_number(quantiles.p25),
+        "median": _json_number(quantiles.median),
+        "p75": _json_number(quantiles.p75),
+    }
+
+
+def _json_number(value: Decimal) -> int | float:
+    quantized = value.quantize(_JSON_QUANTUM, rounding=ROUND_HALF_UP)
+    integral = quantized.to_integral_value(rounding=ROUND_HALF_UP)
+    if quantized == integral:
+        return int(integral)
+    return float(quantized)
+
+
+def _fmt_num(value: Decimal) -> str:
+    quantized = value.quantize(_JSON_QUANTUM, rounding=ROUND_HALF_UP)
+    if quantized == quantized.to_integral_value():
+        return str(int(quantized))
+    return format(quantized.normalize(), "f")
+
+
+def _fmt_money(value: Decimal | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"${_fmt_num(value)}"
+
+
+def _fmt_span(quantiles: Quantiles, *, money: bool = False) -> str:
+    fmt = _fmt_money if money else _fmt_num
+    return f"{fmt(quantiles.median)} ({fmt(quantiles.p25)}–{fmt(quantiles.p75)})"
+
+
+def _fmt_rate(value: Decimal) -> str:
+    percent = (value * Decimal(100)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    text = format(percent, "f")
+    if text.endswith(".0"):
+        text = text[:-2]
+    return f"{text}%"
