@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated
@@ -12,6 +13,21 @@ from agentcost.errors import AgentCostError, PriceError
 from agentcost.parse import load_traces
 from agentcost.pricing import ModelPrice, PriceTable
 from agentcost.report import compare, render_json, render_markdown
+
+
+def _prefer_utf8_stdio() -> None:
+    """Help and reports use characters outside legacy Windows code pages."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            continue
+
+
+_prefer_utf8_stdio()
 
 app = typer.Typer(
     name="agentcost",
@@ -124,12 +140,12 @@ def _emit_report(
             typer.echo(payload, nl=False)
         return
     if output_format == "json":
-        output.write_text(payload, encoding="utf-8")
+        output.write_text(payload, encoding="utf-8", newline="\n")
         return
-    output.write_text(markdown, encoding="utf-8")
+    output.write_text(markdown, encoding="utf-8", newline="\n")
     if output_format == "both":
         json_path = output.with_suffix(".json")
-        json_path.write_text(payload, encoding="utf-8")
+        json_path.write_text(payload, encoding="utf-8", newline="\n")
 
 
 def _parse_set_price(raw: str) -> tuple[str, ModelPrice]:

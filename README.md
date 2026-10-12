@@ -201,7 +201,9 @@ ruff format --check .
 pytest
 ```
 
-GitHub Actions runs the linter and the tests on Python 3.10 and 3.12.
+Dependencies are version ranges in `pyproject.toml`; this library does not commit a lockfile.
+
+GitHub Actions runs the tests on Ubuntu, macOS, and Windows for Python 3.10, 3.11, and 3.12. The linter runs on Ubuntu with Python 3.12.
 
 ## Not in v0.1
 
