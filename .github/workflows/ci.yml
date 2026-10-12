@@ -79,6 +79,14 @@ jobs:
               )
           print(f"smoke ok: verdict={verdict}")
           PY
+          echo "smoke report json:"
+          "${py}" -m json.tool "${report}"
+      - name: Upload smoke report
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-report-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: ${{ runner.temp }}/agentcost-report.json
+          if-no-files-found: error
       - name: Smoke pipx
         if: runner.os == 'Linux' && matrix.python-version == '3.12'
         run: |
@@ -121,3 +129,12 @@ jobs:
               )
           print(f"pipx smoke ok: verdict={verdict}")
           PY
+          echo "pipx report json:"
+          python -m json.tool "${report}"
+      - name: Upload pipx report
+        if: runner.os == 'Linux' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipx-report-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: ${{ runner.temp }}/agentcost-pipx-report.json
+          if-no-files-found: error
