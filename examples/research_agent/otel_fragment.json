@@ -1,0 +1,60 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "agentcost.variant",
+            "value": {"stringValue": "A"}
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "spans": [
+            {
+              "traceId": "trace-q01",
+              "spanId": "agent",
+              "name": "invoke_agent research",
+              "attributes": [
+                {"key": "gen_ai.operation.name", "value": {"stringValue": "invoke_agent"}},
+                {"key": "gen_ai.request.model", "value": {"stringValue": "gpt-4o-mini"}},
+                {"key": "gen_ai.usage.input_tokens", "value": {"intValue": "99999"}},
+                {"key": "gen_ai.usage.output_tokens", "value": {"intValue": "99999"}},
+                {"key": "agentcost.task_id", "value": {"stringValue": "q01"}},
+                {"key": "agentcost.run_id", "value": {"stringValue": "r1"}}
+              ],
+              "status": {"code": "STATUS_CODE_OK"}
+            },
+            {
+              "traceId": "trace-q01",
+              "spanId": "search",
+              "name": "execute_tool search",
+              "attributes": [
+                {"key": "gen_ai.operation.name", "value": {"stringValue": "execute_tool"}},
+                {"key": "gen_ai.tool.name", "value": {"stringValue": "search"}},
+                {"key": "agentcost.task_id", "value": {"stringValue": "q01"}},
+                {"key": "agentcost.run_id", "value": {"stringValue": "r1"}}
+              ],
+              "status": {"code": "STATUS_CODE_OK"}
+            },
+            {
+              "traceId": "trace-q01",
+              "spanId": "chat",
+              "name": "chat gpt-4o-mini",
+              "attributes": [
+                {"key": "gen_ai.operation.name", "value": {"stringValue": "chat"}},
+                {"key": "gen_ai.request.model", "value": {"stringValue": "gpt-4o-mini"}},
+                {"key": "gen_ai.usage.input_tokens", "value": {"intValue": "1480"}},
+                {"key": "gen_ai.usage.output_tokens", "value": {"intValue": "295"}},
+                {"key": "agentcost.task_id", "value": {"stringValue": "q01"}},
+                {"key": "agentcost.run_id", "value": {"stringValue": "r1"}}
+              ],
+              "status": {"code": "STATUS_CODE_OK"}
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

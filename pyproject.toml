@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentcost"
+version = "0.1.0"
+description = "Measure per-task cost of LLM agents and compare A/B variants from traces."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "agentcost contributors" }]
+keywords = ["llm", "agents", "observability", "opentelemetry", "cost"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+]
+dependencies = ["typer>=0.12,<1"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+agentcost = "agentcost.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/Ivrogo/agentcost"
+Source = "https://github.com/Ivrogo/agentcost"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentcost"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/agentcost/data/prices.json" = "agentcost/data/prices.json"
+"src/agentcost/py.typed" = "agentcost/py.typed"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/agentcost",
+  "tests",
+  "examples",
+  "README.md",
+  "LICENSE",
+  "pyproject.toml",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
