@@ -1,0 +1,1034 @@
+=== pytest-red.txt ===
+..F...                                                                   [100%]
+=================================== FAILURES ===================================
+__________ test_format_both_refuses_output_that_already_ends_in_json ___________
+tests/test_cli.py:96: in test_format_both_refuses_output_that_already_ends_in_json
+    assert result.exit_code == 1
+E   assert 0 == 1
+E    +  where 0 = <Result okay>.exit_code
+=========================== short test summary info ============================
+FAILED tests/test_cli.py::test_format_both_refuses_output_that_already_ends_in_json
+1 failed, 5 passed in 0.17s
+EXIT:1
+
+=== pytest-green.txt ===
+python=Python 3.12.3
+command=pytest -q
+.............................                                            [100%]
+29 passed in 0.12s
+pytest_exit:0
+
+command=ruff check .
+All checks passed!
+ruff_check_exit:0
+
+command=ruff format --check .
+31 files already formatted
+ruff_format_exit:0
+
+=== pytest-3.10.txt ===
+.............................                                            [100%]
+29 passed in 0.19s
+
+=== pytest-3.10.exit ===
+0
+
+=== pytest-3.11.txt ===
+.............................                                            [100%]
+29 passed in 0.16s
+
+=== pytest-3.11.exit ===
+0
+
+=== pytest-3.12.txt ===
+.............................                                            [100%]
+29 passed in 0.16s
+
+=== pytest-3.12.exit ===
+0
+
+=== doctor-clean-3.10.txt ===
+mode=clean
+version=0.1.0
+module=/tmp/agentcost-verify-20261027181749-3384/clean-3.10/lib/python3.10/site-packages/agentcost/__init__.py
+python=Python 3.10.22
+shebang=#!/tmp/agentcost-verify-20261027181749-3384/clean-3.10/bin/python
+
+=== doctor-clean-3.10.exit ===
+0
+
+=== doctor-clean-3.11.txt ===
+mode=clean
+version=0.1.0
+module=/tmp/agentcost-verify-20261027181749-3384/clean-3.11/lib/python3.11/site-packages/agentcost/__init__.py
+python=Python 3.11.18
+shebang=#!/tmp/agentcost-verify-20261027181749-3384/clean-3.11/bin/python
+
+=== doctor-clean-3.11.exit ===
+0
+
+=== doctor-clean-3.12.txt ===
+mode=clean
+version=0.1.0
+module=/tmp/agentcost-verify-20261027181749-3384/clean-3.12/lib/python3.12/site-packages/agentcost/__init__.py
+python=Python 3.12.16
+shebang=#!/tmp/agentcost-verify-20261027181749-3384/clean-3.12/bin/python
+
+=== doctor-clean-3.12.exit ===
+0
+
+=== doctor-editable-3.10.txt ===
+mode=editable
+version=0.1.0
+module=/workspace/src/agentcost/__init__.py
+python=Python 3.10.22
+shebang=#!/tmp/agentcost-verify-20261027181749-3384/venv-3.10/bin/python
+
+=== doctor-editable-3.10.exit ===
+0
+
+=== doctor-editable-3.11.txt ===
+mode=editable
+version=0.1.0
+module=/workspace/src/agentcost/__init__.py
+python=Python 3.11.18
+shebang=#!/tmp/agentcost-verify-20261027181749-3384/venv-3.11/bin/python
+
+=== doctor-editable-3.11.exit ===
+0
+
+=== doctor-editable-3.12.txt ===
+mode=editable
+version=0.1.0
+module=/workspace/src/agentcost/__init__.py
+python=Python 3.12.16
+shebang=#!/tmp/agentcost-verify-20261027181749-3384/venv-3.12/bin/python
+
+=== doctor-editable-3.12.exit ===
+0
+
+=== m01-bare-3.10.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.10/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format both --output informe 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-bare-3.10
+exit: 0
+--- stdout ---
+--- stderr ---
+
+=== m01-bare-3.10.exit ===
+0
+
+=== m01-bare-3.10.stdout.txt ===
+(vacío)
+=== m01-bare-3.10.stderr.txt ===
+(vacío)
+=== m01-bare-3.10.files.txt ===
+exit=0
+stdout_empty=True
+contiene **Verdict:** better
+verdict='better'
+
+=== m01-bare-3.11.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.11/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format both --output informe 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-bare-3.11
+exit: 0
+--- stdout ---
+--- stderr ---
+
+=== m01-bare-3.11.exit ===
+0
+
+=== m01-bare-3.11.stdout.txt ===
+(vacío)
+=== m01-bare-3.11.stderr.txt ===
+(vacío)
+=== m01-bare-3.11.files.txt ===
+exit=0
+stdout_empty=True
+contiene **Verdict:** better
+verdict='better'
+
+=== m01-bare-3.12.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.12/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format both --output informe 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-bare-3.12
+exit: 0
+--- stdout ---
+--- stderr ---
+
+=== m01-bare-3.12.exit ===
+0
+
+=== m01-bare-3.12.stdout.txt ===
+(vacío)
+=== m01-bare-3.12.stderr.txt ===
+(vacío)
+=== m01-bare-3.12.files.txt ===
+exit=0
+stdout_empty=True
+contiene **Verdict:** better
+verdict='better'
+
+=== m01-conflict-3.10.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.10/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format both --output informe.json 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-conflict-3.10
+exit: 1
+--- stdout ---
+--- stderr ---
+--format both would write Markdown and JSON to the same path: informe.json
+
+=== m01-conflict-3.10.exit ===
+1
+
+=== m01-conflict-3.10.stdout.txt ===
+(vacío)
+=== m01-conflict-3.10.stderr.txt ===
+--format both would write Markdown and JSON to the same path: informe.json
+
+=== m01-conflict-3.10.files.txt ===
+exit=1
+stdout_empty=True
+file_exists=False
+stderr=--format both would write Markdown and JSON to the same path: informe.json
+
+=== m01-conflict-3.11.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.11/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format both --output informe.json 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-conflict-3.11
+exit: 1
+--- stdout ---
+--- stderr ---
+--format both would write Markdown and JSON to the same path: informe.json
+
+=== m01-conflict-3.11.exit ===
+1
+
+=== m01-conflict-3.11.stdout.txt ===
+(vacío)
+=== m01-conflict-3.11.stderr.txt ===
+--format both would write Markdown and JSON to the same path: informe.json
+
+=== m01-conflict-3.11.files.txt ===
+exit=1
+stdout_empty=True
+file_exists=False
+stderr=--format both would write Markdown and JSON to the same path: informe.json
+
+=== m01-conflict-3.12.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.12/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format both --output informe.json 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-conflict-3.12
+exit: 1
+--- stdout ---
+--- stderr ---
+--format both would write Markdown and JSON to the same path: informe.json
+
+=== m01-conflict-3.12.exit ===
+1
+
+=== m01-conflict-3.12.stdout.txt ===
+(vacío)
+=== m01-conflict-3.12.stderr.txt ===
+--format both would write Markdown and JSON to the same path: informe.json
+
+=== m01-conflict-3.12.files.txt ===
+exit=1
+stdout_empty=True
+file_exists=False
+stderr=--format both would write Markdown and JSON to the same path: informe.json
+
+=== m01-json-3.10.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.10/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format json --output informe.json 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-json-3.10
+exit: 0
+--- stdout ---
+--- stderr ---
+
+=== m01-json-3.10.exit ===
+0
+
+=== m01-json-3.10.stdout.txt ===
+(vacío)
+=== m01-json-3.10.stderr.txt ===
+(vacío)
+=== m01-json-3.10.files.txt ===
+exit=0
+stdout_empty=True
+names=['informe.json']
+verdict='better'
+has_md_verdict=False
+
+=== m01-json-3.11.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.11/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format json --output informe.json 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-json-3.11
+exit: 0
+--- stdout ---
+--- stderr ---
+
+=== m01-json-3.11.exit ===
+0
+
+=== m01-json-3.11.stdout.txt ===
+(vacío)
+=== m01-json-3.11.stderr.txt ===
+(vacío)
+=== m01-json-3.11.files.txt ===
+exit=0
+stdout_empty=True
+names=['informe.json']
+verdict='better'
+has_md_verdict=False
+
+=== m01-json-3.12.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.12/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format json --output informe.json 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-json-3.12
+exit: 0
+--- stdout ---
+--- stderr ---
+
+=== m01-json-3.12.exit ===
+0
+
+=== m01-json-3.12.stdout.txt ===
+(vacío)
+=== m01-json-3.12.stderr.txt ===
+(vacío)
+=== m01-json-3.12.files.txt ===
+exit=0
+stdout_empty=True
+names=['informe.json']
+verdict='better'
+has_md_verdict=False
+
+=== m01-md-3.10.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.10/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format both --output informe.md 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-md-3.10
+exit: 0
+--- stdout ---
+--- stderr ---
+
+=== m01-md-3.10.exit ===
+0
+
+=== m01-md-3.10.stdout.txt ===
+(vacío)
+=== m01-md-3.10.stderr.txt ===
+(vacío)
+=== m01-md-3.10.files.txt ===
+exit=0
+stdout_empty=True
+contiene **Verdict:** better
+verdict='better'
+
+=== m01-md-3.11.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.11/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format both --output informe.md 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-md-3.11
+exit: 0
+--- stdout ---
+--- stderr ---
+
+=== m01-md-3.11.exit ===
+0
+
+=== m01-md-3.11.stdout.txt ===
+(vacío)
+=== m01-md-3.11.stderr.txt ===
+(vacío)
+=== m01-md-3.11.files.txt ===
+exit=0
+stdout_empty=True
+contiene **Verdict:** better
+verdict='better'
+
+=== m01-md-3.12.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.12/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format both --output informe.md 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-md-3.12
+exit: 0
+--- stdout ---
+--- stderr ---
+
+=== m01-md-3.12.exit ===
+0
+
+=== m01-md-3.12.stdout.txt ===
+(vacío)
+=== m01-md-3.12.stderr.txt ===
+(vacío)
+=== m01-md-3.12.files.txt ===
+exit=0
+stdout_empty=True
+contiene **Verdict:** better
+verdict='better'
+
+=== report-json.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.12/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format json 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work
+exit: 0
+--- stdout ---
+{
+  "schema_version": "0.1",
+  "price_table_version": "2026-10-01",
+  "currency": "USD",
+  "compare": [
+    "A",
+    "B"
+  ],
+  "metric": "cost_per_solved_task",
+  "verdict": "better",
+  "verdict_reason": "A is cheaper per solved task than B; bootstrap 95% intervals do not overlap.",
+  "bootstrap": {
+    "seed": 42,
+    "resamples": 1000,
+    "level": 0.95
+  },
+  "arms": {
+    "A": {
+      "tasks": 8,
+      "successful_tasks": 8,
+      "runs": 9,
+      "successful_runs": 8,
+      "failed_runs": 1,
+      "success_rate": 1,
+      "total_cost": 0.003987,
+      "failed_run_cost": 0.000207,
+      "failed_run_tokens": 1020,
+      "cost_per_solved_task": 0.000498375,
+      "unpriced_models": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.0004515,
+          "median": 0.0004935,
+          "p75": 0.00053025
+        },
+        "tokens": {
+          "p25": 2012.5,
+          "median": 2202.5,
+          "p75": 2368.75
+        },
+        "steps": {
+          "p25": 3,
+          "median": 3,
+          "p75": 3
+        }
+      }
+    },
+    "B": {
+      "tasks": 8,
+      "successful_tasks": 7,
+      "runs": 8,
+      "successful_runs": 7,
+      "failed_runs": 1,
+      "success_rate": 0.875,
+      "total_cost": 0.0728,
+      "failed_run_cost": 0.0098,
+      "failed_run_tokens": 2420,
+      "cost_per_solved_task": 0.0104,
+      "unpriced_models": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.00875,
+          "median": 0.0091,
+          "p75": 0.00945
+        },
+        "tokens": {
+          "p25": 2157.5,
+          "median": 2245,
+          "p75": 2332.5
+        },
+        "steps": {
+          "p25": 2,
+          "median": 2,
+          "p75": 2
+        }
+      }
+    }
+  },
+  "intervals": {
+    "A": {
+      "low": 0.000454125,
+      "high": 0.00055055625
+    },
+    "B": {
+      "low": 0.008824375,
+      "high": 0.015121
+    }
+  }
+}
+--- stderr ---
+
+=== report-json.exit ===
+0
+
+=== report-json.stdout.txt ===
+{
+  "schema_version": "0.1",
+  "price_table_version": "2026-10-01",
+  "currency": "USD",
+  "compare": [
+    "A",
+    "B"
+  ],
+  "metric": "cost_per_solved_task",
+  "verdict": "better",
+  "verdict_reason": "A is cheaper per solved task than B; bootstrap 95% intervals do not overlap.",
+  "bootstrap": {
+    "seed": 42,
+    "resamples": 1000,
+    "level": 0.95
+  },
+  "arms": {
+    "A": {
+      "tasks": 8,
+      "successful_tasks": 8,
+      "runs": 9,
+      "successful_runs": 8,
+      "failed_runs": 1,
+      "success_rate": 1,
+      "total_cost": 0.003987,
+      "failed_run_cost": 0.000207,
+      "failed_run_tokens": 1020,
+      "cost_per_solved_task": 0.000498375,
+      "unpriced_models": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.0004515,
+          "median": 0.0004935,
+          "p75": 0.00053025
+        },
+        "tokens": {
+          "p25": 2012.5,
+          "median": 2202.5,
+          "p75": 2368.75
+        },
+        "steps": {
+          "p25": 3,
+          "median": 3,
+          "p75": 3
+        }
+      }
+    },
+    "B": {
+      "tasks": 8,
+      "successful_tasks": 7,
+      "runs": 8,
+      "successful_runs": 7,
+      "failed_runs": 1,
+      "success_rate": 0.875,
+      "total_cost": 0.0728,
+      "failed_run_cost": 0.0098,
+      "failed_run_tokens": 2420,
+      "cost_per_solved_task": 0.0104,
+      "unpriced_models": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.00875,
+          "median": 0.0091,
+          "p75": 0.00945
+        },
+        "tokens": {
+          "p25": 2157.5,
+          "median": 2245,
+          "p75": 2332.5
+        },
+        "steps": {
+          "p25": 2,
+          "median": 2,
+          "p75": 2
+        }
+      }
+    }
+  },
+  "intervals": {
+    "A": {
+      "low": 0.000454125,
+      "high": 0.00055055625
+    },
+    "B": {
+      "low": 0.008824375,
+      "high": 0.015121
+    }
+  }
+}
+
+=== report-json.stderr.txt ===
+(vacío)
+=== report-json-3.10.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.10/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format json 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work
+exit: 0
+--- stdout ---
+{
+  "schema_version": "0.1",
+  "price_table_version": "2026-10-01",
+  "currency": "USD",
+  "compare": [
+    "A",
+    "B"
+  ],
+  "metric": "cost_per_solved_task",
+  "verdict": "better",
+  "verdict_reason": "A is cheaper per solved task than B; bootstrap 95% intervals do not overlap.",
+  "bootstrap": {
+    "seed": 42,
+    "resamples": 1000,
+    "level": 0.95
+  },
+  "arms": {
+    "A": {
+      "tasks": 8,
+      "successful_tasks": 8,
+      "runs": 9,
+      "successful_runs": 8,
+      "failed_runs": 1,
+      "success_rate": 1,
+      "total_cost": 0.003987,
+      "failed_run_cost": 0.000207,
+      "failed_run_tokens": 1020,
+      "cost_per_solved_task": 0.000498375,
+      "unpriced_models": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.0004515,
+          "median": 0.0004935,
+          "p75": 0.00053025
+        },
+        "tokens": {
+          "p25": 2012.5,
+          "median": 2202.5,
+          "p75": 2368.75
+        },
+        "steps": {
+          "p25": 3,
+          "median": 3,
+          "p75": 3
+        }
+      }
+    },
+    "B": {
+      "tasks": 8,
+      "successful_tasks": 7,
+      "runs": 8,
+      "successful_runs": 7,
+      "failed_runs": 1,
+      "success_rate": 0.875,
+      "total_cost": 0.0728,
+      "failed_run_cost": 0.0098,
+      "failed_run_tokens": 2420,
+      "cost_per_solved_task": 0.0104,
+      "unpriced_models": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.00875,
+          "median": 0.0091,
+          "p75": 0.00945
+        },
+        "tokens": {
+          "p25": 2157.5,
+          "median": 2245,
+          "p75": 2332.5
+        },
+        "steps": {
+          "p25": 2,
+          "median": 2,
+          "p75": 2
+        }
+      }
+    }
+  },
+  "intervals": {
+    "A": {
+      "low": 0.000454125,
+      "high": 0.00055055625
+    },
+    "B": {
+      "low": 0.008824375,
+      "high": 0.015121
+    }
+  }
+}
+--- stderr ---
+
+=== report-json-3.10.exit ===
+0
+
+=== report-json-3.10.stdout.txt ===
+{
+  "schema_version": "0.1",
+  "price_table_version": "2026-10-01",
+  "currency": "USD",
+  "compare": [
+    "A",
+    "B"
+  ],
+  "metric": "cost_per_solved_task",
+  "verdict": "better",
+  "verdict_reason": "A is cheaper per solved task than B; bootstrap 95% intervals do not overlap.",
+  "bootstrap": {
+    "seed": 42,
+    "resamples": 1000,
+    "level": 0.95
+  },
+  "arms": {
+    "A": {
+      "tasks": 8,
+      "successful_tasks": 8,
+      "runs": 9,
+      "successful_runs": 8,
+      "failed_runs": 1,
+      "success_rate": 1,
+      "total_cost": 0.003987,
+      "failed_run_cost": 0.000207,
+      "failed_run_tokens": 1020,
+      "cost_per_solved_task": 0.000498375,
+      "unpriced_models": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.0004515,
+          "median": 0.0004935,
+          "p75": 0.00053025
+        },
+        "tokens": {
+          "p25": 2012.5,
+          "median": 2202.5,
+          "p75": 2368.75
+        },
+        "steps": {
+          "p25": 3,
+          "median": 3,
+          "p75": 3
+        }
+      }
+    },
+    "B": {
+      "tasks": 8,
+      "successful_tasks": 7,
+      "runs": 8,
+      "successful_runs": 7,
+      "failed_runs": 1,
+      "success_rate": 0.875,
+      "total_cost": 0.0728,
+      "failed_run_cost": 0.0098,
+      "failed_run_tokens": 2420,
+      "cost_per_solved_task": 0.0104,
+      "unpriced_models": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.00875,
+          "median": 0.0091,
+          "p75": 0.00945
+        },
+        "tokens": {
+          "p25": 2157.5,
+          "median": 2245,
+          "p75": 2332.5
+        },
+        "steps": {
+          "p25": 2,
+          "median": 2,
+          "p75": 2
+        }
+      }
+    }
+  },
+  "intervals": {
+    "A": {
+      "low": 0.000454125,
+      "high": 0.00055055625
+    },
+    "B": {
+      "low": 0.008824375,
+      "high": 0.015121
+    }
+  }
+}
+
+=== report-json-3.10.stderr.txt ===
+(vacío)
+=== report-json-3.11.txt ===
+command: /tmp/agentcost-verify-20261027181749-3384/clean-3.11/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format json 
+cwd: /tmp/agentcost-verify-20261027181749-3384/work
+exit: 0
+--- stdout ---
+{
+  "schema_version": "0.1",
+  "price_table_version": "2026-10-01",
+  "currency": "USD",
+  "compare": [
+    "A",
+    "B"
+  ],
+  "metric": "cost_per_solved_task",
+  "verdict": "better",
+  "verdict_reason": "A is cheaper per solved task than B; bootstrap 95% intervals do not overlap.",
+  "bootstrap": {
+    "seed": 42,
+    "resamples": 1000,
+    "level": 0.95
+  },
+  "arms": {
+    "A": {
+      "tasks": 8,
+      "successful_tasks": 8,
+      "runs": 9,
+      "successful_runs": 8,
+      "failed_runs": 1,
+      "success_rate": 1,
+      "total_cost": 0.003987,
+      "failed_run_cost": 0.000207,
+      "failed_run_tokens": 1020,
+      "cost_per_solved_task": 0.000498375,
+      "unpriced_models": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.0004515,
+          "median": 0.0004935,
+          "p75": 0.00053025
+        },
+        "tokens": {
+          "p25": 2012.5,
+          "median": 2202.5,
+          "p75": 2368.75
+        },
+        "steps": {
+          "p25": 3,
+          "median": 3,
+          "p75": 3
+        }
+      }
+    },
+    "B": {
+      "tasks": 8,
+      "successful_tasks": 7,
+      "runs": 8,
+      "successful_runs": 7,
+      "failed_runs": 1,
+      "success_rate": 0.875,
+      "total_cost": 0.0728,
+      "failed_run_cost": 0.0098,
+      "failed_run_tokens": 2420,
+      "cost_per_solved_task": 0.0104,
+      "unpriced_models": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.00875,
+          "median": 0.0091,
+          "p75": 0.00945
+        },
+        "tokens": {
+          "p25": 2157.5,
+          "median": 2245,
+          "p75": 2332.5
+        },
+        "steps": {
+          "p25": 2,
+          "median": 2,
+          "p75": 2
+        }
+      }
+    }
+  },
+  "intervals": {
+    "A": {
+      "low": 0.000454125,
+      "high": 0.00055055625
+    },
+    "B": {
+      "low": 0.008824375,
+      "high": 0.015121
+    }
+  }
+}
+--- stderr ---
+
+=== report-json-3.11.exit ===
+0
+
+=== report-json-3.11.stdout.txt ===
+{
+  "schema_version": "0.1",
+  "price_table_version": "2026-10-01",
+  "currency": "USD",
+  "compare": [
+    "A",
+    "B"
+  ],
+  "metric": "cost_per_solved_task",
+  "verdict": "better",
+  "verdict_reason": "A is cheaper per solved task than B; bootstrap 95% intervals do not overlap.",
+  "bootstrap": {
+    "seed": 42,
+    "resamples": 1000,
+    "level": 0.95
+  },
+  "arms": {
+    "A": {
+      "tasks": 8,
+      "successful_tasks": 8,
+      "runs": 9,
+      "successful_runs": 8,
+      "failed_runs": 1,
+      "success_rate": 1,
+      "total_cost": 0.003987,
+      "failed_run_cost": 0.000207,
+      "failed_run_tokens": 1020,
+      "cost_per_solved_task": 0.000498375,
+      "unpriced_models": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.0004515,
+          "median": 0.0004935,
+          "p75": 0.00053025
+        },
+        "tokens": {
+          "p25": 2012.5,
+          "median": 2202.5,
+          "p75": 2368.75
+        },
+        "steps": {
+          "p25": 3,
+          "median": 3,
+          "p75": 3
+        }
+      }
+    },
+    "B": {
+      "tasks": 8,
+      "successful_tasks": 7,
+      "runs": 8,
+      "successful_runs": 7,
+      "failed_runs": 1,
+      "success_rate": 0.875,
+      "total_cost": 0.0728,
+      "failed_run_cost": 0.0098,
+      "failed_run_tokens": 2420,
+      "cost_per_solved_task": 0.0104,
+      "unpriced_models": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.00875,
+          "median": 0.0091,
+          "p75": 0.00945
+        },
+        "tokens": {
+          "p25": 2157.5,
+          "median": 2245,
+          "p75": 2332.5
+        },
+        "steps": {
+          "p25": 2,
+          "median": 2,
+          "p75": 2
+        }
+      }
+    }
+  },
+  "intervals": {
+    "A": {
+      "low": 0.000454125,
+      "high": 0.00055055625
+    },
+    "B": {
+      "low": 0.008824375,
+      "high": 0.015121
+    }
+  }
+}
+
+=== report-json-3.11.stderr.txt ===
+(vacío)
+=== ci-pr.txt ===
+command: gh pr checks 5 && gh run list --branch fix/report-output-conflict --limit 5
+sha: 874132434a6a0e15727cfa7ec6fad9e3205e7511
+test (macos-latest, 3.10)	pass	46s	https://github.com/Ivrogo/agentcost/actions/runs/40557321895/job/122376749044	
+test (macos-latest, 3.10)	pass	52s	https://github.com/Ivrogo/agentcost/actions/runs/40557355521/job/122376863976	
+test (macos-latest, 3.11)	pass	28s	https://github.com/Ivrogo/agentcost/actions/runs/40557321895/job/122376748871	
+test (macos-latest, 3.11)	pass	30s	https://github.com/Ivrogo/agentcost/actions/runs/40557355521/job/122376863937	
+test (macos-latest, 3.12)	pass	33s	https://github.com/Ivrogo/agentcost/actions/runs/40557321895/job/122376748540	
+test (macos-latest, 3.12)	pass	30s	https://github.com/Ivrogo/agentcost/actions/runs/40557355521/job/122376864086	
+test (ubuntu-latest, 3.10)	pass	27s	https://github.com/Ivrogo/agentcost/actions/runs/40557321895/job/122376749045	
+test (ubuntu-latest, 3.10)	pass	25s	https://github.com/Ivrogo/agentcost/actions/runs/40557355521/job/122376863876	
+test (ubuntu-latest, 3.11)	pass	20s	https://github.com/Ivrogo/agentcost/actions/runs/40557321895/job/122376749399	
+test (ubuntu-latest, 3.11)	pass	22s	https://github.com/Ivrogo/agentcost/actions/runs/40557355521/job/122376864076	
+test (ubuntu-latest, 3.12)	pass	25s	https://github.com/Ivrogo/agentcost/actions/runs/40557321895/job/122376748865	
+test (ubuntu-latest, 3.12)	pass	29s	https://github.com/Ivrogo/agentcost/actions/runs/40557355521/job/122376863863	
+test (windows-latest, 3.10)	pass	1m33s	https://github.com/Ivrogo/agentcost/actions/runs/40557321895/job/122376749059	
+test (windows-latest, 3.10)	pass	1m9s	https://github.com/Ivrogo/agentcost/actions/runs/40557355521/job/122376864027	
+test (windows-latest, 3.11)	pass	1m2s	https://github.com/Ivrogo/agentcost/actions/runs/40557321895/job/122376748934	
+test (windows-latest, 3.11)	pass	53s	https://github.com/Ivrogo/agentcost/actions/runs/40557355521/job/122376864025	
+test (windows-latest, 3.12)	pass	45s	https://github.com/Ivrogo/agentcost/actions/runs/40557321895/job/122376749025	
+test (windows-latest, 3.12)	pass	54s	https://github.com/Ivrogo/agentcost/actions/runs/40557355521/job/122376863363	
+--- runs ---
+completed	success	Rechaza --format both cuando --output ya termina en .json	CI	fix/report-output-conflict	pull_request	40557355521	1m17s	2026-10-27T18:09:45Z
+completed	success	Rechaza --format both cuando --output ya termina en .json.	CI	fix/report-output-conflict	push	40557321895	1m38s	2026-10-27T18:09:33Z
+
+=== cli-coder.txt ===
+bin=/tmp/agentcost-dev/bin/agentcost
+cwd_outside_repo=yes
+
+== c1 both informe.json ==
+exit:1
+stdout:0 bytes
+stderr:--format both would write Markdown and JSON to the same path: informe.json
+files:
+
+== c2 both informe.md ==
+exit:0
+stdout_bytes:0
+stderr_bytes:0
+md_has_verdict:1
+json_verdict:better
+files:./informe.json ./informe.md 
+
+== c3 both informe ==
+exit:0
+stdout_bytes:0
+stderr_bytes:0
+md_has_verdict:1
+json_verdict:better
+files:./informe ./informe.json 
+
+== c4 json informe.json ==
+exit:0
+stdout_bytes:0
+stderr_bytes:0
+json_verdict:better
+json_has_md_verdict:0
+files:./informe.json 
+
+=== judge.txt ===
+report-json-3.10: PASS 
+report-json-3.11: PASS 
+report-json: PASS 
+m01-conflict-3.10: PASS exit=1 file_exists=False msg=True
+m01-md-3.10: PASS exit=0 verdict='better'
+m01-bare-3.10: PASS exit=0
+m01-json-3.10: PASS exit=0 names=['informe.json']
+m01-conflict-3.11: PASS exit=1 file_exists=False msg=True
+m01-md-3.11: PASS exit=0 verdict='better'
+m01-bare-3.11: PASS exit=0
+m01-json-3.11: PASS exit=0 names=['informe.json']
+m01-conflict-3.12: PASS exit=1 file_exists=False msg=True
+m01-md-3.12: PASS exit=0 verdict='better'
+m01-bare-3.12: PASS exit=0
+m01-json-3.12: PASS exit=0 names=['informe.json']
+
+=== launch.txt ===
+repo=/workspace
+root=/tmp/agentcost-verify-20261027181749-3384
+base_commit=874132434a6a0e15727cfa7ec6fad9e3205e7511
+py310=/home/ubuntu/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 Python 3.10.22
+py311=/home/ubuntu/.local/share/uv/python/cpython-3.11-linux-x86_64-gnu/bin/python3.11 Python 3.11.18
+py312=/home/ubuntu/.local/share/uv/python/cpython-3.12-linux-x86_64-gnu/bin/python3.12 Python 3.12.16
+
+=== ruff-check.txt ===
+All checks passed!
+
+=== ruff-check.exit ===
+0
+
+=== ruff-format.txt ===
+32 files already formatted
+
+=== ruff-format.exit ===
+0
+
+=== scope.txt ===
+Esta máquina es Linux. macOS, Windows y pipx los ejecuta .github/workflows/ci.yml.
+El resultado de esa CI, en el SHA revisado, está en ci-pr.txt.
+

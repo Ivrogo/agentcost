@@ -1,5 +1,0 @@
-exit=0
-stdout_empty=True
-names=['informe.json']
-verdict='better'
-has_md_verdict=False

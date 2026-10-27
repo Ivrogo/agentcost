@@ -1,6 +1,0 @@
-repo=/workspace
-root=/tmp/agentcost-verify-20261027181749-3384
-base_commit=874132434a6a0e15727cfa7ec6fad9e3205e7511
-py310=/home/ubuntu/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 Python 3.10.22
-py311=/home/ubuntu/.local/share/uv/python/cpython-3.11-linux-x86_64-gnu/bin/python3.11 Python 3.11.18
-py312=/home/ubuntu/.local/share/uv/python/cpython-3.12-linux-x86_64-gnu/bin/python3.12 Python 3.12.16

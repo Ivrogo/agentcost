@@ -1,5 +1,0 @@
-command: /tmp/agentcost-verify-20261027181749-3384/clean-3.10/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format both --output informe 
-cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-bare-3.10
-exit: 0
---- stdout ---
---- stderr ---

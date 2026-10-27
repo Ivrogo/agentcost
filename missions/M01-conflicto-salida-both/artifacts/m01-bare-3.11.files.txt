@@ -1,4 +1,0 @@
-exit=0
-stdout_empty=True
-contiene **Verdict:** better
-verdict='better'

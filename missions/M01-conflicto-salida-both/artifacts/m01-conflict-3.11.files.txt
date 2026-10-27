@@ -1,4 +1,0 @@
-exit=1
-stdout_empty=True
-file_exists=False
-stderr=--format both would write Markdown and JSON to the same path: informe.json

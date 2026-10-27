@@ -131,7 +131,7 @@ Pytest y ruff dejan su texto en los `.txt` del bloque anterior. `$EVIDENCE/launc
 
 La prueba tiene que recorrer el camino de usuario: el ejecutable `agentcost` del venv, una traza real del repositorio y el estado que esa orden produce (stdout, stderr, código y, si hay `--output`, el fichero escrito). No sirve importar `compare` desde el test como sustituto de la CLI. Un fichero generado se vuelve a leer desde fuera del proceso que lo escribió.
 
-Dentro de una misión, copia esa evidencia a `missions/<id>/artifacts/` y haz que `verification.json` apunte ahí. La copia sobrevive aunque luego borres `$ROOT`.
+Dentro de una misión, copia esa evidencia a `missions/<id>/evidencias.log` y haz que `verification.json` apunte ahí. La copia sobrevive aunque luego borres `$ROOT`.
 
 ## Cleanup
 
@@ -169,7 +169,7 @@ No uses `kill` por nombre de proceso ni `rm -rf "$ROOT"`: ahí dentro está la e
 
 ## Checks y `verification.json`
 
-Cada check de abajo es un objeto de `checks`. `command` es el comando real. `result` es `pass`, `fail` o `skipped`. `detail` dice qué se observó, y en un `skipped` la justificación no puede ir vacía. `evidence` es la ruta versionada, normalmente bajo `missions/<id>/artifacts/`.
+Cada check de abajo es un objeto de `checks`. `command` es el comando real. `result` es `pass`, `fail` o `skipped`. `detail` dice qué se observó, y en un `skipped` la justificación no puede ir vacía. `evidence` es la ruta versionada, normalmente bajo `missions/<id>/evidencias.log`.
 
 | `name` | Qué tiene que haber pasado |
 | --- | --- |
@@ -192,7 +192,7 @@ Cada check de abajo es un objeto de `checks`. `command` es el comando real. `res
   "command": "agentcost report examples/research_agent/traces.jsonl --compare A B --format json",
   "result": "pass",
   "detail": "exit 0; verdict better; A 0.000498375; B 0.0104",
-  "evidence": "artifacts/report-json.txt"
+  "evidence": "evidencias.log#report-json.txt"
 }
 ```
 
@@ -202,7 +202,7 @@ Cada check de abajo es un objeto de `checks`. `command` es el comando real. `res
   "command": "not run",
   "result": "skipped",
   "detail": "Esta máquina es Linux. macOS, Windows y pipx los ejecuta .github/workflows/ci.yml.",
-  "evidence": "artifacts/scope.txt"
+  "evidence": "evidencias.log#scope.txt"
 }
 ```
 
