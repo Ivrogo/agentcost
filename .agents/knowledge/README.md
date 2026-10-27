@@ -12,7 +12,7 @@ Cabe aquí:
 No cabe aquí:
 
 - una entrada vacía o un resumen que repita `AGENTS.md`, el README o una skill
-- la evidencia de una misión (eso va en `missions/<id>/artifacts/`)
+- la evidencia de una misión (eso va en `missions/<id>/evidencias.log`)
 - un secreto, una credencial o un dato de un entorno concreto
 
 Una ficha nueva es un fichero Markdown junto a este README, con título, contexto y motivo. Si una entrada es incorrecta, se corrige en su sitio.

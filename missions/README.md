@@ -16,7 +16,7 @@ El proceso, la clasificación y el contrato de `verification.json` están en `AG
 
 `full`: feature, bugfix, comportamiento, seguridad, datos o trabajo transversal. Además de los tres ficheros de la misión ligera:
 
-- `artifacts/` con la evidencia que cita `verification.json`
+- `evidencias.log` con la evidencia que cita `verification.json`. Las evidencias de cada misión van en un único `evidencias.log`.
 - entrada de changelog y documentación o knowledge cuando el cambio lo exija
 
 `plan.md` se escribe antes de cualquier cambio funcional. `execution.md` se actualiza mientras se trabaja. Sin `verification.json` en `status: passed` la misión no está terminada.

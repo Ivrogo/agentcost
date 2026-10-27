@@ -58,7 +58,7 @@ Autenticación, concurrencia, migraciones de datos, secretos, configuración de 
 Directorio `missions/MNN-slug/`. El índice y el formato están en `missions/README.md`.
 
 - Misión ligera: `plan.md`, `execution.md`, `verification.json`.
-- Misión completa: además `artifacts/`, entrada de changelog y documentación o knowledge cuando corresponda.
+- Misión completa: además `evidencias.log`, entrada de changelog y documentación o knowledge cuando corresponda.
 - `execution.md` se actualiza durante el trabajo: comandos, decisiones, reintentos, escalados y motivos.
 - `plan.md` precede siempre a los cambios funcionales.
 - La evidencia es concisa y versionable (`.txt`, `.json`): salida final, RED relevante y los diagnósticos necesarios. No se guardan logs repetitivos completos.
@@ -77,13 +77,13 @@ La validación incluye tests unitarios, integración o punta a punta cuando el c
   "status": "passed",
   "task": "M01-ejemplo",
   "checks": [
-    {"name": "unit_tests", "command": "pytest -q", "result": "pass", "detail": "exit 0", "evidence": "artifacts/pytest.txt"},
-    {"name": "e2e_cli", "command": "not run", "result": "skipped", "detail": "No aplica: cambio solo documental", "evidence": "artifacts/scope.txt"}
+    {"name": "unit_tests", "command": "pytest -q", "result": "pass", "detail": "exit 0", "evidence": "evidencias.log#pytest.txt"},
+    {"name": "e2e_cli", "command": "not run", "result": "skipped", "detail": "No aplica: cambio solo documental", "evidence": "evidencias.log#scope.txt"}
   ],
   "environment": {"runtime": "venv limpio", "python": "3.12", "base_commit": "0123abc"},
   "model_tier_used": "standard",
   "escalations": 0,
-  "evidence": ["artifacts/pytest.txt", "artifacts/scope.txt"]
+  "evidence": ["evidencias.log#pytest.txt", "evidencias.log#scope.txt"]
 }
 ```
 

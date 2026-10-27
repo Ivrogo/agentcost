@@ -1,6 +1,0 @@
-command: /tmp/agentcost-verify-20261027181749-3384/clean-3.10/bin/agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format both --output informe.json 
-cwd: /tmp/agentcost-verify-20261027181749-3384/work/m01-conflict-3.10
-exit: 1
---- stdout ---
---- stderr ---
---format both would write Markdown and JSON to the same path: informe.json

@@ -25,17 +25,17 @@ Comando, desde la raíz, con el venv `/tmp/agentcost-dev` (`pip install -e ".[de
 pytest -q tests/test_cli.py
 ```
 
-Salida en `artifacts/pytest-red.txt`: 1 failed, 5 passed. Falla `test_format_both_refuses_output_that_already_ends_in_json` porque `exit_code` es 0. Los otros tres casos nuevos pasan: describen la conducta que ya existía.
+Salida en `evidencias.log`, bloque `pytest-red.txt`: 1 failed, 5 passed. Falla `test_format_both_refuses_output_that_already_ends_in_json` porque `exit_code` es 0. Los otros tres casos nuevos pasan: describen la conducta que ya existía.
 
 ## GREEN del codificador
 
-Mismo venv, después del cambio. Salida en `artifacts/pytest-green.txt`.
+Mismo venv, después del cambio. Salida en `evidencias.log`, bloque `pytest-green.txt`.
 
 - `pytest -q` → 29 passed, salida 0.
 - `ruff check .` → `All checks passed!`, salida 0.
 - `ruff format --check .` → 31 ficheros ya formateados, salida 0.
 
-CLI real del mismo venv, directorio de trabajo `/tmp/agentcost-m01-cli` (fuera del árbol), traza `examples/research_agent/traces.jsonl`. Resumen en `artifacts/cli-coder.txt`.
+CLI real del mismo venv, directorio de trabajo `/tmp/agentcost-m01-cli` (fuera del árbol), traza `examples/research_agent/traces.jsonl`. Resumen en `evidencias.log`, bloque `cli-coder.txt`.
 
 | Caso | Salida | Qué se observó |
 | --- | --- | --- |
@@ -83,7 +83,7 @@ Otro agente, sin usar los artefactos del codificador como prueba. Intérpretes c
 
 `verification.json` queda en `status: passed`. El único `skipped` es `ci_otros_sistemas`: esta máquina es Linux. La CI del PR en el SHA de arriba está en verde (push `40557321895` y pull_request `40557355521`).
 
-`ruff check` imprimió el texto en color. `artifacts/ruff-check.txt` guarda la misma línea sin los códigos ANSI: `All checks passed!`. La salida del proceso fue 0.
+`ruff check` imprimió el texto en color. El bloque `ruff-check.txt` de `evidencias.log` guarda la misma línea sin los códigos ANSI: `All checks passed!`. La salida del proceso fue 0.
 
 No hubo reintentos ni escalado. `model_tier_used`: `standard`. `escalations`: 0. No se modificó código de producción, tests ni `.github/`.
 
