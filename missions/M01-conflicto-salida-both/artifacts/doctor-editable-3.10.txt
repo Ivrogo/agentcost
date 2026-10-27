@@ -1,0 +1,5 @@
+mode=editable
+version=0.1.0
+module=/workspace/src/agentcost/__init__.py
+python=Python 3.10.22
+shebang=#!/tmp/agentcost-verify-20261027181749-3384/venv-3.10/bin/python

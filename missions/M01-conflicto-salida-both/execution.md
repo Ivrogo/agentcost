@@ -73,3 +73,19 @@ Después de Review y Validación en OK. El repositorio no tiene changelog.
 
 - `README.md`, fila de `--output`: hoy dice que el JSON usa la misma ruta con sufijo `.json`, sin decir que la orden sale 1 si esa ruta ya termina en `.json`.
 - `.cursor/skills/verify-agentcost/features/report-output.md`, gotcha de `--format both` con sufijo `.json`: describe el fallo antiguo. Hay que alinearlo con el rechazo y no usarlo como conducta esperada.
+
+## Review
+
+Otro agente. SHA `874132434a6a0e15727cfa7ec6fad9e3205e7511`. Veredicto en `review.md`: aprobado, sin bloqueantes. No se reabre Implementación.
+
+La regresión se repitió fuera de esta rama: worktree de `6d78799` más `tests/test_cli.py` de este SHA. `pytest -q tests/test_cli.py` dejó 1 failed, 5 passed. El fallo es `exit_code` 0 en el test del conflicto. El worktree se eliminó.
+
+## Validación
+
+Otro agente, sin usar los artefactos del codificador como prueba. Intérpretes con `uv python install 3.10 3.11 3.12`: Python 3.10.22, 3.11.18 y 3.12.16. Venv de desarrollo y venv limpio por versión, bajo `/tmp/agentcost-verify-20261027181749-3384`. La CLI fue por `drive.sh`, con el directorio de trabajo fuera del árbol. Los ficheros escritos se leyeron desde fuera del proceso.
+
+`verification.json` queda en `status: passed`. El único `skipped` es `ci_otros_sistemas`: esta máquina es Linux. La CI del PR en el SHA de arriba está en verde (push `40557321895` y pull_request `40557355521`).
+
+`ruff check` imprimió el texto en color. `artifacts/ruff-check.txt` guarda la misma línea sin los códigos ANSI: `All checks passed!`. La salida del proceso fue 0.
+
+No hubo reintentos ni escalado. `model_tier_used`: `standard`. `escalations`: 0. No se modificó código de producción, tests ni `.github/`.

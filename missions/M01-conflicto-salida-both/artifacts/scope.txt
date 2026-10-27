@@ -1,0 +1,2 @@
+Esta máquina es Linux. macOS, Windows y pipx los ejecuta .github/workflows/ci.yml.
+El resultado de esa CI, en el SHA revisado, está en ci-pr.txt.

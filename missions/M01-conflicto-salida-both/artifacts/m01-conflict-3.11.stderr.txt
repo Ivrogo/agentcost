@@ -1,0 +1,1 @@
+--format both would write Markdown and JSON to the same path: informe.json

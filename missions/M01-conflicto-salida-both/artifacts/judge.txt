@@ -1,0 +1,15 @@
+report-json-3.10: PASS 
+report-json-3.11: PASS 
+report-json: PASS 
+m01-conflict-3.10: PASS exit=1 file_exists=False msg=True
+m01-md-3.10: PASS exit=0 verdict='better'
+m01-bare-3.10: PASS exit=0
+m01-json-3.10: PASS exit=0 names=['informe.json']
+m01-conflict-3.11: PASS exit=1 file_exists=False msg=True
+m01-md-3.11: PASS exit=0 verdict='better'
+m01-bare-3.11: PASS exit=0
+m01-json-3.11: PASS exit=0 names=['informe.json']
+m01-conflict-3.12: PASS exit=1 file_exists=False msg=True
+m01-md-3.12: PASS exit=0 verdict='better'
+m01-bare-3.12: PASS exit=0
+m01-json-3.12: PASS exit=0 names=['informe.json']

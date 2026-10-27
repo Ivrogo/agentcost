@@ -1,0 +1,5 @@
+mode=clean
+version=0.1.0
+module=/tmp/agentcost-verify-20261027181749-3384/clean-3.11/lib/python3.11/site-packages/agentcost/__init__.py
+python=Python 3.11.18
+shebang=#!/tmp/agentcost-verify-20261027181749-3384/clean-3.11/bin/python
