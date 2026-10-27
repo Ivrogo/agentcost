@@ -1,0 +1,11 @@
+..F...                                                                   [100%]
+=================================== FAILURES ===================================
+__________ test_format_both_refuses_output_that_already_ends_in_json ___________
+tests/test_cli.py:96: in test_format_both_refuses_output_that_already_ends_in_json
+    assert result.exit_code == 1
+E   assert 0 == 1
+E    +  where 0 = <Result okay>.exit_code
+=========================== short test summary info ============================
+FAILED tests/test_cli.py::test_format_both_refuses_output_that_already_ends_in_json
+1 failed, 5 passed in 0.17s
+EXIT:1

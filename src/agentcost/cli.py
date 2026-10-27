@@ -139,12 +139,18 @@ def _emit_report(
         if output_format in {"json", "both"}:
             typer.echo(payload, nl=False)
         return
+    json_path: Path | None = None
+    if output_format == "both":
+        json_path = output.with_suffix(".json")
+        if json_path == output:
+            raise AgentCostError(
+                f"--format both would write Markdown and JSON to the same path: {output}"
+            )
     if output_format == "json":
         output.write_text(payload, encoding="utf-8", newline="\n")
         return
     output.write_text(markdown, encoding="utf-8", newline="\n")
-    if output_format == "both":
-        json_path = output.with_suffix(".json")
+    if json_path is not None:
         json_path.write_text(payload, encoding="utf-8", newline="\n")
 
 
