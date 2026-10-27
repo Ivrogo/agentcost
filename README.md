@@ -131,12 +131,20 @@ agentcost report traces.otel.json --compare A B --format both --output report.md
 | `--format` | `md` | `md`, `json`, or `both`. |
 | `--prices` | bundled table | JSON file merged onto the snapshot. |
 | `--set-price` | none | `MODEL=INPUT:OUTPUT` in USD per 1,000,000 tokens. Repeatable. Wins over the file. |
-| `--output` | stdout | Write the report. With `--format both`, the JSON file uses the same path with a `.json` suffix. |
+| `--output` | stdout | Write the report. With `--format both`, Markdown goes to this path and JSON to the same path with a `.json` suffix. |
 | `--seed` | `42` | Bootstrap seed. |
 | `--bootstrap` | `1000` | Resample count. |
 | `--allow-unpriced` | off | Unknown models cost zero and are named in the report. |
 
-Expected failures (missing variant, unknown model, bad JSON) print the message to stderr and exit 1.
+`--format both` refuses an `--output` that already ends in `.json`, because the Markdown and JSON reports would be the same file. The command prints the path to stderr, exits 1, and creates nothing:
+
+```text
+--format both would write Markdown and JSON to the same path: informe.json
+```
+
+Ask for both reports with a path that does not end in `.json`. `informe.md` writes Markdown there and JSON to `informe.json`. `informe` writes Markdown to `informe` and JSON to `informe.json`. To write only JSON, use `--format json --output informe.json`.
+
+Expected failures (missing variant, unknown model, bad JSON, or `--format both` with an `--output` that already ends in `.json`) print the message to stderr and exit 1.
 
 ## Library
 

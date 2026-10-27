@@ -69,10 +69,7 @@ Los cuatro casos de esta misión conviene repetirlos con el `agentcost` del venv
 
 ## Para el documentador
 
-Después de Review y Validación en OK. El repositorio no tiene changelog.
-
-- `README.md`, fila de `--output`: hoy dice que el JSON usa la misma ruta con sufijo `.json`, sin decir que la orden sale 1 si esa ruta ya termina en `.json`.
-- `.cursor/skills/verify-agentcost/features/report-output.md`, gotcha de `--format both` con sufijo `.json`: describe el fallo antiguo. Hay que alinearlo con el rechazo y no usarlo como conducta esperada.
+Hecho. El detalle está en «Documentación», al final de este fichero.
 
 ## Review
 
@@ -89,3 +86,14 @@ Otro agente, sin usar los artefactos del codificador como prueba. Intérpretes c
 `ruff check` imprimió el texto en color. `artifacts/ruff-check.txt` guarda la misma línea sin los códigos ANSI: `All checks passed!`. La salida del proceso fue 0.
 
 No hubo reintentos ni escalado. `model_tier_used`: `standard`. `escalations`: 0. No se modificó código de producción, tests ni `.github/`.
+
+## Documentación
+
+Hecha después de la Review aprobada y de `verification.json` en `status: passed` (commit `65c40a3`). Esta fase no toca `src/`, `tests/`, `verification.json` ni `review.md`. No se reabren Review ni Validación: el diff no cambia código, tests, seguridad, datos ni configuración de runtime.
+
+- `README.md` sigue en inglés, como el resto de ese fichero y como el mensaje de la CLI. La fila de `--output` dice que el JSON lleva sufijo `.json`. Debajo, `--format both` con un `--output` que ya termina en `.json` sale 1, no crea el fichero y nombra la ruta. La alternativa es `informe.md`, `informe`, o `--format json --output informe.json`.
+- `.agents/knowledge/formato-both-salida-json.md` guarda el gotcha: `with_suffix(".json")` no cambia una ruta que ya tiene ese sufijo, y el rechazo va antes de escribir. El índice `.agents/knowledge/README.md` enlaza la ficha.
+- `CHANGELOG.md` se crea con el formato Keep a Changelog. El cambio está en `[Unreleased]`, bajo `Fixed`.
+- `.cursor/skills/verify-agentcost/features/report-output.md`: el gotcha deja de describir el pisado silencioso y pasa a describir el código 1.
+
+Comprobación de esta fase: enlaces relativos de la ficha, encabezados del changelog y ausencia de contradicción con el mensaje `--format both would write Markdown and JSON to the same path`. El estado de Git se revisa al publicar este commit en `fix/report-output-conflict`.

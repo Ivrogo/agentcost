@@ -28,5 +28,5 @@ Preconditions:
 ## Gotchas
 
 - Comprobar solo el código 0 no demuestra que el fichero exista. Hay que abrirlo.
-- `--format both` con una ruta que ya termina en `.json` no es este feature: Markdown y JSON acabarían en el mismo path. No lo uses como atajo.
+- `--format both` con una ruta que ya termina en `.json` no es este feature. La CLI sale con código 1, no crea el fichero y el stderr nombra la ruta. Para los dos formatos usa una ruta que no termine en `.json`. `--format json --output <ruta.json>` sí es este feature.
 - La limpieza no debe borrar `$EVIDENCE/report-output/report.json`.
