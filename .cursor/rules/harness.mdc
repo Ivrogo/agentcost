@@ -1,0 +1,10 @@
+---
+description: Obliga a seguir el proceso de AGENTS.md en todo el trabajo de agentcost.
+alwaysApply: true
+---
+
+Sigue `AGENTS.md`. Es el proceso de este repositorio.
+
+Clasifica cada cambio como `none`, `simple`, `light` o `full` antes de editar. La clasificación es obligatoria.
+
+Una misión `light` o `full` no se cierra sin `missions/<id>/verification.json` en `status: passed`.
