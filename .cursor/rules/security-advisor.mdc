@@ -1,0 +1,9 @@
+---
+description: Exige el veredicto del Security Advisor antes de implementar cambios de autenticación, secretos o despliegue.
+globs: "**/*auth*,**/*secret*,**/.env*,.github/workflows/**,**/Dockerfile*,**/deploy*,pyproject.toml"
+alwaysApply: false
+---
+
+Si el cambio toca ficheros de estos globs, no implementes hasta tener el veredicto del Security Advisor descrito en `AGENTS.md`.
+
+La última línea de ese veredicto es `[YES] Reason: ...` o `[NO] Reason: ...`. Un `[NO]` bloquea la implementación.
