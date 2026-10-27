@@ -15,4 +15,8 @@ No cabe aquí:
 - la evidencia de una misión (eso va en `missions/<id>/artifacts/`)
 - un secreto, una credencial o un dato de un entorno concreto
 
-Hoy no hay entradas: todavía no hay una decisión reutilizable que merezca ficha propia. Una ficha nueva es un fichero Markdown junto a este README, con título, contexto y motivo. Si una entrada es incorrecta, se corrige en su sitio.
+Una ficha nueva es un fichero Markdown junto a este README, con título, contexto y motivo. Si una entrada es incorrecta, se corrige en su sitio.
+
+Entradas:
+
+- [Sufijo `.json` con `--format both`](formato-both-salida-json.md). Un `--output` que ya termina en `.json` se rechaza, porque `with_suffix` no cambiaría la ruta.

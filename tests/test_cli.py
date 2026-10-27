@@ -10,6 +10,9 @@ from typer.testing import CliRunner
 from agentcost.cli import app
 
 runner = CliRunner()
+EXAMPLE_TRACES = (
+    Path(__file__).resolve().parents[1] / "examples" / "research_agent" / "traces.jsonl"
+)
 
 
 def _write_traces(path: Path) -> None:
@@ -78,3 +81,52 @@ def test_report_markdown_is_the_default(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert "Verdict" in result.stdout
     assert "gpt-4o-mini" not in result.stdout or "Success rate" in result.stdout
+
+
+def _report(*args: str):
+    return runner.invoke(
+        app,
+        ["report", str(EXAMPLE_TRACES), "--compare", "A", "B", *args],
+    )
+
+
+def test_format_both_refuses_output_that_already_ends_in_json(tmp_path: Path) -> None:
+    output = tmp_path / "informe.json"
+    result = _report("--format", "both", "--output", str(output))
+    assert result.exit_code == 1
+    assert str(output) in result.stderr
+    assert not output.exists()
+    assert result.stdout == ""
+
+
+def test_format_both_writes_markdown_and_json_for_md_output(tmp_path: Path) -> None:
+    output = tmp_path / "informe.md"
+    result = _report("--format", "both", "--output", str(output))
+    assert result.exit_code == 0, result.output
+    assert result.stdout == ""
+    markdown = output.read_text(encoding="utf-8")
+    payload = json.loads((tmp_path / "informe.json").read_text(encoding="utf-8"))
+    assert "**Verdict:** better" in markdown
+    assert payload["verdict"] == "better"
+
+
+def test_format_both_keeps_unsuffixed_output_as_markdown(tmp_path: Path) -> None:
+    output = tmp_path / "informe"
+    result = _report("--format", "both", "--output", str(output))
+    assert result.exit_code == 0, result.output
+    assert result.stdout == ""
+    assert "**Verdict:** better" in output.read_text(encoding="utf-8")
+    payload = json.loads((tmp_path / "informe.json").read_text(encoding="utf-8"))
+    assert payload["verdict"] == "better"
+
+
+def test_format_json_writes_only_the_json_file(tmp_path: Path) -> None:
+    output = tmp_path / "informe.json"
+    result = _report("--format", "json", "--output", str(output))
+    assert result.exit_code == 0, result.output
+    assert result.stdout == ""
+    text = output.read_text(encoding="utf-8")
+    payload = json.loads(text)
+    assert payload["verdict"] == "better"
+    assert "**Verdict:**" not in text
+    assert list(tmp_path.iterdir()) == [output]
