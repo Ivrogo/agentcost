@@ -14,41 +14,27 @@ Doctor editable y clean en 3.10, 3.11 y 3.12. version=0.1.0. Editable: módulo b
 
 # pytest-3.10.txt
 
-```text
-107 passed in 1.28s
-```
-
-exit 0. Comando: `/tmp/agentcost-verify-20261029110941-3533/venv-3.10/bin/pytest -q` desde `/workspace`.
-
-Tras el aserto del comentario en `examples/ci/agentcost.yml`, la misma orden volvió a salir 0: 107 passed.
+Antes del merge del #11: 107 passed, exit 0. Tras fusionar `origin/main` (`2f4aa54`) en `25957b6`, la misma orden salió 0: 108 passed (entra el test de precios de Claude 5).
 
 # pytest-3.11.txt
 
-```text
-107 passed in 1.06s
-```
-
-exit 0. Repetición tras el aserto del comentario: 107 passed, exit 0.
+Igual: 108 passed, exit 0, sobre el árbol fusionado.
 
 # pytest-3.12.txt
 
-```text
-107 passed in 0.80s
-```
-
-exit 0. Repetición tras el aserto del comentario: 107 passed, exit 0.
+Igual: 108 passed, exit 0, sobre el árbol fusionado.
 
 # ruff-check.txt
 
-`ruff check .` con el venv 3.12. exit 0. Texto: `All checks passed`.
+`ruff check .` con el venv 3.12, después del merge. exit 0. Texto: `All checks passed`.
 
 # ruff-format.txt
 
 ```text
-66 files already formatted
+69 files already formatted
 ```
 
-exit 0. No aparece `No Python files found`.
+exit 0, después del merge. No aparece `No Python files found`.
 
 # clean-install.txt
 
@@ -105,6 +91,10 @@ exit 1. Stdout vacío. Stderr: `--fail-if-inconclusive requires --fail-if-worse.
 # help-report.txt
 
 `agentcost report --help` en el venv limpio 3.12. exit 0. Stdout contiene `--fail-if-worse` y `--fail-if-inconclusive`.
+
+# merge-main.txt
+
+`git merge origin/main` (sin rebase) creó `25957b6`. Padre: `763e855` y `2f4aa54` (PR #11). Sin conflictos. `prices.json` entra con el merge; esta rama no edita esas tarifas. El e2e de la puerta se repitió con el venv limpio 3.12 reinstalado: los códigos siguen siendo 0, 3, 0, 4 y 1, y el JSON de `research_agent` sigue en A `0.000498375`, B `0.0104`.
 
 # scope.txt
 

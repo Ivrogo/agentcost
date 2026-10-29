@@ -37,6 +37,10 @@ Entorno `/tmp/agentcost-verify-20261029110941-3533`. Resumen en `evidencias.log`
 
 macOS, Windows y pipx no se ejecutan en esta máquina. Los cubre `.github/workflows/ci.yml`.
 
+## Merge de origin/main
+
+El PR #11 llegó a `main` (`2f4aa54`) durante el trabajo. `git merge origin/main` creó `25957b6` (padres `763e855` y `2f4aa54`), sin rebase, sin force-push y sin conflictos. No se tocaron las tarifas de `claude-sonnet-5` ni de `claude-fable-5`. Pytest en 3.10, 3.11 y 3.12: 108 passed. Ruff en verde. El e2e limpio se repitió: mismos códigos y mismas cifras del caso `research_agent`.
+
 ## Documentación
 
 README, CHANGELOG (cambio incompatible), comentario en `examples/ci/agentcost.yml`, knowledge `modo-ci.md` y el mapa de `ci-gate`. No cambia el cálculo. No se reabre la review de código: el único test nuevo es un aserto del comentario, y pytest se repitió.
