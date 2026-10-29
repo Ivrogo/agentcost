@@ -29,5 +29,5 @@ Preconditions:
 
 - El veredicto es de la primera variante frente a la segunda. `--compare B A` no es este caso.
 - El guion de los percentiles es un guion largo (`–`). Afirma las líneas de arriba, no reescribas la tabla a mano.
-- Estas cifras corresponden a la tabla de precios empaquetada `2026-10-01` y a la traza de ejemplo actual. Si cambian, actualiza este feature; no aflojes la comprobación.
+- Estas cifras corresponden a la traza de ejemplo y a las tarifas de entrada y salida que ya estaban en la tabla `2026-10-01`. El fichero pasó a `2026-10-29` al añadir precios de caché; esta traza no tiene tokens de caché, así que el coste no cambia. Si cambian, actualiza este feature; no aflojes la comprobación.
 - Lanzar el comando desde la raíz del repo no demuestra que el ejecutable instalado funcione fuera del árbol. El directorio de trabajo es `$ROOT/work`.

@@ -21,3 +21,4 @@ Entradas:
 
 - [Sufijo `.json` con `--format both`](formato-both-salida-json.md). Un `--output` que ya termina en `.json` se rechaza, porque `with_suffix` no cambiaría la ruta.
 - [Comparación emparejada por task_id](comparacion-emparejada.md). La diferencia es la primera variante menos la segunda. El veredicto emparejado lee `pairing.cost`, no el solape de `intervals`.
+- [Contabilidad de tokens de caché](cache-token-accounting.md). OpenAI resta `cached_tokens` de la entrada; Anthropic suma lectura y escritura; OTel resta porque la convención ya los incluye en `input_tokens`.

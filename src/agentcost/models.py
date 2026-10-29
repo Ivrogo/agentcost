@@ -36,7 +36,12 @@ class PairingMode(str, Enum):
 
 @dataclass(frozen=True, slots=True)
 class Event:
-    """One LLM or tool call."""
+    """One LLM or tool call.
+
+    ``input_tokens`` is ordinary input. It does not overlap ``cache_read_tokens``,
+    ``cache_write_5m_tokens``, or ``cache_write_1h_tokens``. A v0.1 trace leaves
+    the cache counters at zero.
+    """
 
     task_id: str
     variant: str
@@ -46,6 +51,9 @@ class Event:
     output_tokens: int
     model: str | None
     status: EventStatus
+    cache_read_tokens: int = 0
+    cache_write_5m_tokens: int = 0
+    cache_write_1h_tokens: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +134,17 @@ class ArmReport:
     tokens: Quantiles
     steps: Quantiles
     unpriced_models: tuple[str, ...]
+    input_cost: Decimal
+    output_cost: Decimal
+    cache_read_cost: Decimal
+    cache_write_5m_cost: Decimal
+    cache_write_1h_cost: Decimal
+    cache_savings: Decimal
+    cache_priced_as_input: tuple[str, ...]
+
+    @property
+    def cache_write_cost(self) -> Decimal:
+        return self.cache_write_5m_cost + self.cache_write_1h_cost
 
 
 @dataclass(frozen=True, slots=True)

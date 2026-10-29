@@ -1,0 +1,113 @@
+{
+  "status": "passed",
+  "task": "M02-coste-cache",
+  "checks": [
+    {
+      "name": "pytest_3_10",
+      "command": "/tmp/agentcost-verify-20261029100121-2860/venv-3.10/bin/pytest -q",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0, 56 passed. Doctor editable pasó: el módulo es src/agentcost y la versión es 0.1.0. Python 3.10.22.",
+      "evidence": "evidencias.log#pytest-3.10.txt"
+    },
+    {
+      "name": "pytest_3_11",
+      "command": "/tmp/agentcost-verify-20261029100121-2860/venv-3.11/bin/pytest -q",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0, 56 passed. Doctor editable pasó. Python 3.11.18.",
+      "evidence": "evidencias.log#pytest-3.11.txt"
+    },
+    {
+      "name": "pytest_3_12",
+      "command": "/tmp/agentcost-verify-20261029100121-2860/venv-3.12/bin/pytest -q",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0, 56 passed. Doctor editable pasó. Python 3.12.16.",
+      "evidence": "evidencias.log#pytest-3.12.txt"
+    },
+    {
+      "name": "ruff_check",
+      "command": "/tmp/agentcost-verify-20261029100121-2860/venv-3.12/bin/ruff check .",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0. El texto es All checks passed.",
+      "evidence": "evidencias.log#ruff-check.txt"
+    },
+    {
+      "name": "ruff_format",
+      "command": "/tmp/agentcost-verify-20261029100121-2860/venv-3.12/bin/ruff format --check .",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0, 39 files already formatted. No aparece No Python files found.",
+      "evidence": "evidencias.log#ruff-format.txt"
+    },
+    {
+      "name": "clean_install_3_10",
+      "command": "/home/ubuntu/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 -m venv /tmp/agentcost-verify-20261029100121-2860/clean-3.10 && /tmp/agentcost-verify-20261029100121-2860/clean-3.10/bin/python -m pip install -q /workspace",
+      "result": "pass",
+      "detail": "Doctor clean salida 0. version 0.1.0. El módulo está en site-packages del venv, no en src. Python 3.10.22. agentcost --help menciona report.",
+      "evidence": "evidencias.log#doctor-clean-3.10.txt"
+    },
+    {
+      "name": "clean_install_3_11",
+      "command": "/home/ubuntu/.local/share/uv/python/cpython-3.11-linux-x86_64-gnu/bin/python3.11 -m venv /tmp/agentcost-verify-20261029100121-2860/clean-3.11 && /tmp/agentcost-verify-20261029100121-2860/clean-3.11/bin/python -m pip install -q /workspace",
+      "result": "pass",
+      "detail": "Doctor clean salida 0. version 0.1.0. Módulo en site-packages del venv. Python 3.11.18.",
+      "evidence": "evidencias.log#doctor-clean-3.11.txt"
+    },
+    {
+      "name": "clean_install_3_12",
+      "command": "/home/ubuntu/.local/share/uv/python/cpython-3.12-linux-x86_64-gnu/bin/python3.12 -m venv /tmp/agentcost-verify-20261029100121-2860/clean-3.12 && /tmp/agentcost-verify-20261029100121-2860/clean-3.12/bin/python -m pip install -q /workspace",
+      "result": "pass",
+      "detail": "Doctor clean salida 0. version 0.1.0. Módulo en site-packages del venv. Python 3.12.16.",
+      "evidence": "evidencias.log#doctor-clean-3.12.txt"
+    },
+    {
+      "name": "e2e_cli_json",
+      "command": "agentcost report examples/research_agent/traces.jsonl --compare A B --format json",
+      "result": "pass",
+      "detail": "Venv limpio, cwd fuera del árbol, drive.sh. En 3.10, 3.11 y 3.12: exit 0, stderr vacío, schema_version 0.1, verdict better, compare A y B, A cost_per_solved_task 0.000498375 con tasks 8 y successful_tasks 8, B cost_per_solved_task 0.0104 con tasks 8 y successful_tasks 7.",
+      "evidence": "evidencias.log#report-json.txt"
+    },
+    {
+      "name": "e2e_cli_cache",
+      "command": "agentcost report examples/cache_usage/traces.jsonl --compare openai anthropic",
+      "result": "pass",
+      "detail": "Venv limpio, cwd fuera del árbol, drive.sh, en 3.10, 3.11 y 3.12. Exit 0 y stderr vacío. OpenAI total 0.005615 y ahorro 0.0024. Anthropic total 0.015384 y ahorro 0.004449. La traza está construida a partir de respuestas documentadas, no de una llamada en vivo.",
+      "evidence": "evidencias.log#cache-md-3.12.txt"
+    },
+    {
+      "name": "ci_matrix",
+      "command": "gh run view 40854703661 && gh run view 40854751210",
+      "result": "pass",
+      "detail": "Push 40854703661 y pull_request 40854751210 en success. 18 checks: Ubuntu, macOS y Windows con Python 3.10, 3.11 y 3.12, todos pass.",
+      "evidence": "evidencias.log#ci-pr.txt"
+    },
+    {
+      "name": "ci_otros_sistemas",
+      "command": "not run",
+      "result": "skipped",
+      "detail": "Esta máquina es Linux. macOS, Windows y pipx los ejecuta .github/workflows/ci.yml.",
+      "evidence": "evidencias.log#scope.txt"
+    }
+  ],
+  "environment": {
+    "runtime": "venv limpio",
+    "python": "Python 3.10.22, Python 3.11.18, Python 3.12.16",
+    "base_commit": "5f17365c54059041439ccb52721134263372af5d"
+  },
+  "model_tier_used": "complex",
+  "escalations": 0,
+  "evidence": [
+    "evidencias.log#launch.txt",
+    "evidencias.log#pytest-3.10.txt",
+    "evidencias.log#pytest-3.11.txt",
+    "evidencias.log#pytest-3.12.txt",
+    "evidencias.log#ruff-check.txt",
+    "evidencias.log#ruff-format.txt",
+    "evidencias.log#doctor-clean-3.10.txt",
+    "evidencias.log#doctor-clean-3.11.txt",
+    "evidencias.log#doctor-clean-3.12.txt",
+    "evidencias.log#report-json.txt",
+    "evidencias.log#cache-md-3.12.txt",
+    "evidencias.log#cache-json-3.12.stdout.txt",
+    "evidencias.log#ci-pr.txt",
+    "evidencias.log#scope.txt"
+  ]
+}
