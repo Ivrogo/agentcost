@@ -20,3 +20,4 @@ Una ficha nueva es un fichero Markdown junto a este README, con título, context
 Entradas:
 
 - [Sufijo `.json` con `--format both`](formato-both-salida-json.md). Un `--output` que ya termina en `.json` se rechaza, porque `with_suffix` no cambiaría la ruta.
+- [Contabilidad de tokens de caché](cache-token-accounting.md). OpenAI resta `cached_tokens` de la entrada; Anthropic suma lectura y escritura; OTel resta porque la convención ya los incluye en `input_tokens`.

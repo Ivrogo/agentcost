@@ -14,10 +14,19 @@ from agentcost.errors import PriceError
 
 @dataclass(frozen=True, slots=True)
 class ModelPrice:
-    """USD per 1,000,000 tokens."""
+    """USD per 1,000,000 tokens.
+
+    Cache rates are optional. ``None`` means the table does not publish one;
+    the report then uses the input rate and says so. Zero is a real price.
+    """
 
     input_per_million: Decimal
     output_per_million: Decimal
+    cache_read_per_million: Decimal | None = None
+    cache_write_5m_per_million: Decimal | None = None
+    cache_write_1h_per_million: Decimal | None = None
+    source: str | None = None
+    as_of: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,7 +85,7 @@ class PriceTable:
                 raise PriceError("model names must be non-empty strings")
             if not isinstance(spec, dict) or "input" not in spec or "output" not in spec:
                 raise PriceError(f"model {name!r} needs input and output prices")
-            models[name] = _price(name, spec["input"], spec["output"])
+            models[name] = _price(name, spec)
         return cls(version=version, currency=currency, models=models)
 
     def lookup(self, model: str) -> ModelPrice | None:
@@ -105,8 +114,7 @@ class PriceTable:
     def override(self, models: Mapping[str, ModelPrice]) -> PriceTable:
         merged = dict(self.models)
         for name, price in models.items():
-            if price.input_per_million < 0 or price.output_per_million < 0:
-                raise PriceError(f"model {name!r} has a negative price")
+            _reject_negative(name, price)
             merged[name] = price
         return PriceTable(
             version=f"{self.version}+override",
@@ -115,12 +123,55 @@ class PriceTable:
         )
 
 
-def _price(name: str, raw_input: object, raw_output: object) -> ModelPrice:
+_CACHE_FIELDS = (
+    ("cache_read", "cache_read_per_million"),
+    ("cache_write_5m", "cache_write_5m_per_million"),
+    ("cache_write_1h", "cache_write_1h_per_million"),
+)
+
+
+def _price(name: str, spec: Mapping[str, object]) -> ModelPrice:
     try:
-        input_price = Decimal(str(raw_input))
-        output_price = Decimal(str(raw_output))
+        input_price = Decimal(str(spec["input"]))
+        output_price = Decimal(str(spec["output"]))
     except Exception as exc:
         raise PriceError(f"model {name!r} has a non-numeric price") from exc
-    if input_price < 0 or output_price < 0:
+    cache: dict[str, Decimal] = {}
+    for key, field in _CACHE_FIELDS:
+        if key not in spec or spec[key] is None:
+            continue
+        try:
+            cache[field] = Decimal(str(spec[key]))
+        except Exception as exc:
+            raise PriceError(f"model {name!r} has a non-numeric price") from exc
+    source = _optional_text(name, spec.get("source"), "source")
+    as_of = _optional_text(name, spec.get("as_of"), "as_of")
+    price = ModelPrice(
+        input_per_million=input_price,
+        output_per_million=output_price,
+        source=source,
+        as_of=as_of,
+        **cache,
+    )
+    _reject_negative(name, price)
+    return price
+
+
+def _optional_text(name: str, value: object, field: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise PriceError(f"model {name!r} {field} must be a string")
+    return value.strip()
+
+
+def _reject_negative(name: str, price: ModelPrice) -> None:
+    amounts = (
+        price.input_per_million,
+        price.output_per_million,
+        price.cache_read_per_million,
+        price.cache_write_5m_per_million,
+        price.cache_write_1h_per_million,
+    )
+    if any(amount is not None and amount < 0 for amount in amounts):
         raise PriceError(f"model {name!r} has a negative price")
-    return ModelPrice(input_per_million=input_price, output_per_million=output_price)

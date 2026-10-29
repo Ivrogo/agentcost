@@ -130,3 +130,79 @@ def test_format_json_writes_only_the_json_file(tmp_path: Path) -> None:
     assert payload["verdict"] == "better"
     assert "**Verdict:**" not in text
     assert list(tmp_path.iterdir()) == [output]
+
+
+CACHE_TRACES = Path(__file__).resolve().parents[1] / "examples" / "cache_usage" / "traces.jsonl"
+
+
+def test_cli_price_file_overrides_cache_read(tmp_path: Path) -> None:
+    prices = tmp_path / "prices.json"
+    prices.write_text(
+        json.dumps(
+            {
+                "version": "lab",
+                "currency": "USD",
+                "models": {"gpt-4o": {"input": 2.5, "output": 10, "cache_read": 0}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = runner.invoke(
+        app,
+        [
+            "report",
+            str(CACHE_TRACES),
+            "--compare",
+            "openai",
+            "anthropic",
+            "--format",
+            "json",
+            "--prices",
+            str(prices),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    openai = payload["arms"]["openai"]
+    assert openai["cost_breakdown"]["cache_read"] == 0
+    assert openai["cache_priced_as_input"] == []
+    assert openai["total_cost"] == 0.003215
+    assert payload["arms"]["anthropic"]["total_cost"] == 0.015384
+
+
+def test_cli_set_price_leaves_cache_rate_unset(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "report",
+            str(CACHE_TRACES),
+            "--compare",
+            "openai",
+            "anthropic",
+            "--format",
+            "json",
+            "--set-price",
+            "gpt-4o=2.5:10",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    openai = payload["arms"]["openai"]
+    # 86 * 2.5 + 1920 * 2.5 + 300 * 10 = 8015, per million.
+    assert openai["total_cost"] == 0.008015
+    assert openai["cache_savings"] == 0
+    assert openai["cache_priced_as_input"] == ["gpt-4o cache_read"]
+    markdown = runner.invoke(
+        app,
+        [
+            "report",
+            str(CACHE_TRACES),
+            "--compare",
+            "openai",
+            "anthropic",
+            "--set-price",
+            "gpt-4o=2.5:10",
+        ],
+    )
+    assert markdown.exit_code == 0, markdown.output
+    assert "priced at the input rate" in markdown.stdout

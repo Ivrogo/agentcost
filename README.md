@@ -1,6 +1,6 @@
 # agentcost
 
-agentcost v0.1 turns traces of LLM-agent runs into a per-task cost and an A/B comparison of two variants. It is a library plus a thin command-line interface. It does not call a model, host a dashboard, or ingest spans live.
+agentcost turns traces of LLM-agent runs into a per-task cost, including cached tokens, and an A/B comparison of two variants. It is a library plus a thin command-line interface. It does not call a model, host a dashboard, or ingest spans live.
 
 A **task** is one `task_id` inside a variant. A **run** is one attempt at that task. Each line or span is one LLM call or one tool call. Failed runs are part of the cost (you paid for them) and are also reported on their own rows, so a retry does not disappear into the average.
 
@@ -28,7 +28,9 @@ One JSON object per line. Blank lines are ignored.
 | `variant` | yes | Arm name used by `--compare`. Case-sensitive. |
 | `run_id` | yes | One attempt. Several events can share it. |
 | `kind` | no | `llm` or `tool`. Defaults to `llm` when `model` is set, otherwise `tool`. |
-| `tokens.input`, `tokens.output` | no | Token counts. Missing counts are 0. Flat `input_tokens` / `output_tokens` also work. |
+| `tokens.input`, `tokens.output` | no | Ordinary token counts. Missing counts are 0. Flat `input_tokens` / `output_tokens` also work. `input` does not include cache tokens. |
+| `tokens.cache_read`, `tokens.cache_write_5m`, `tokens.cache_write_1h` | no | Disjoint cache counts. Flat `cache_read_tokens`, `cache_write_5m_tokens`, and `cache_write_1h_tokens` also work. See [Cache](#cache). |
+| `provider`, `usage` | no | Raw provider payload. `openai` or `anthropic`. Do not combine with `tokens` or the flat counts. |
 | `model` | no | Billed model id. Tool calls usually omit it. |
 | `status` | yes | `ok` or `error`. A boolean `ok` is accepted. |
 
@@ -62,7 +64,7 @@ Attributes may be an OTLP key/value list (`intValue` may be a string, as in Prot
 
 `agentcost.variant` is not part of the GenAI semantic conventions. Set it on the span or resource when you export the experiment, or the arm collapses to `default`.
 
-Cache breakdown attributes (`gen_ai.usage.cache_read.input_tokens` and similar) are not priced separately. Conventions already include those tokens in `gen_ai.usage.input_tokens`, and v0.1 bills that total at the input rate. There is no cache discount.
+`gen_ai.usage.cache_read.input_tokens` and `gen_ai.usage.cache_write.input_tokens` are priced on their own. The conventions already include those tokens in `gen_ai.usage.input_tokens`, so agentcost subtracts them before billing. If the cache counts are larger than the input count, the file is rejected. A cache write has no TTL in the conventions, so it is billed as a 5-minute write. A 1-hour Anthropic write needs the JSONL `usage` object. Modality subsets (`gen_ai.usage.text.cache_read.input_tokens` and the audio and image twins) are not read: the convention already includes them in the aggregate.
 
 `invoke_agent`, `create_agent`, and `invoke_workflow` spans are dropped when the same trace also contains a chat, tool, or other GenAI span, so a parent usage total is not added on top of the children. A wrapper that is the only GenAI span in its trace is kept.
 
@@ -73,30 +75,88 @@ Spans with no `gen_ai.*` or `agentcost.*` attribute are ignored.
 Cost of one call, in the table currency (USD in the bundled file):
 
 ```text
-(input_tokens * input_price + output_tokens * output_price) / 1_000_000
+(
+  ordinary_input * input
+  + output * output
+  + cache_read * cache_read
+  + cache_write_5m * cache_write_5m
+  + cache_write_1h * cache_write_1h
+) / 1_000_000
 ```
 
-The bundled snapshot ships at `src/agentcost/data/prices.json`, version `2026-10-01`. It is a static table of public list prices, not a feed from a vendor. Override it whenever the figure needs to match an invoice.
+Output uses the output rate. Each cache term uses its own rate when the row has one. When a cache rate is absent, that term uses the input rate and the report names the model. See [Cache](#cache).
 
-Lookup is exact, then the longest table key that is a hyphen or dot prefix of the model id. `gpt-4o-mini-2024-07-18` matches `gpt-4o-mini`, not `gpt-4o`.
+The bundled snapshot ships at `src/agentcost/data/prices.json`, version `2026-10-29`. It is a static table of public list prices, not a feed from a vendor. Input and output rates for the models that were already in the `2026-10-01` snapshot are unchanged. Override the file whenever the figure needs to match an invoice.
 
-An override file uses the same schema and is merged on top of the bundled table: listed models replace, other models stay. `--set-price` is applied after the file.
+Lookup is exact, then the longest table key that is a hyphen or dot prefix of the model id. `gpt-4o-mini-2024-07-18` matches `gpt-4o-mini`, not `gpt-4o`. A dated id inherits that row's cache rates too. Add an explicit row when the invoice differs. OpenAI's page lists `gpt-4o-2024-05-13` without a cached-input price; the prefix `gpt-4o` does have one, so that dated id needs its own row if it must not inherit.
+
+An override file uses the same schema and is merged on top of the bundled table: listed models replace the whole row, other models stay. `--set-price` is applied after the file. It only sets input and output (`MODEL=INPUT:OUTPUT`). It does not copy or set cache rates, so a cached trace priced that way falls back to the input rate and the report says so. To change a cache rate, put it in the file or pass `ModelPrice` with the cache fields.
 
 ```json
 {
   "version": "lab-1",
   "currency": "USD",
   "models": {
-    "gpt-4o-mini": {"input": 0.15, "output": 0.60}
+    "gpt-4o-mini": {
+      "input": 0.15,
+      "output": 0.60,
+      "cache_read": 0.075
+    },
+    "claude-sonnet-4": {
+      "input": 3,
+      "output": 15,
+      "cache_read": 0.30,
+      "cache_write_5m": 3.75,
+      "cache_write_1h": 6
+    }
   }
 }
 ```
 
-`input` and `output` are USD per 1,000,000 tokens. Unknown models with a non-zero token count are an error. `--allow-unpriced` (or `on_missing="zero"`) prices them as zero and lists them on the report. A call with zero tokens does not need a price.
+`input`, `output`, `cache_read`, `cache_write_5m`, and `cache_write_1h` are USD per 1,000,000 tokens. Omit a cache key to leave that rate unset. A present `0` is free and does not warn. Optional `source` and `as_of` are recorded on the row and are not required. Unknown models with a non-zero token count, cache included, are an error. `--allow-unpriced` (or `on_missing="zero"`) prices them as zero and lists them on the report. A call with zero tokens does not need a price.
+
+## Cache
+
+Ordinary input, cache reads, and cache writes are separate counts. The same tokens are not billed twice. Which rule applies depends on how the trace is written.
+
+| Shape | Rule |
+| --- | --- |
+| `tokens` or the flat fields, no `usage` | Already disjoint. `tokens.input` is ordinary input. Cache fields are added. A v0.1 line has no cache fields, so its cost does not change. `provider` without `usage` does not subtract or add. |
+| `provider: "openai"` and `usage` | `prompt_tokens` (Chat Completions) and `input_tokens` (Responses) already include `cached_tokens`. Ordinary input is that total minus `cached_tokens`. [Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching) and the usage object in [Prompt Caching in the API](https://openai.com/index/api-prompt-caching/) (1 October 2024). |
+| `provider: "anthropic"` and `usage` | `input_tokens` does not include the cache. `cache_read_input_tokens` and `cache_creation_input_tokens` are added. `cache_creation.ephemeral_5m_input_tokens` and `ephemeral_1h_input_tokens` are the write split and are not added on top of the creation total. If only the total is present, it is a 5-minute write, which is Anthropic's default TTL. [Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching). |
+| OTel GenAI | Cache attributes are included in `gen_ai.usage.input_tokens`. They are subtracted. Writes are billed as 5-minute writes. |
+
+Do not pass `usage` and `tokens` on the same event. OpenAI `cache_write_tokens` (30-minute and 12-hour writes on newer models) is rejected when it is not zero: those tokens already sit inside `input_tokens`, and this table has no price for them. Putting a flat `cache_read_tokens` next to a `tokens` object is an error unless `tokens.cache_read` repeats the same number. Flat `input_tokens` next to `tokens` is still ignored, as in v0.1.
+
+Cache savings are what those cache tokens would have cost at the input rate, minus what they cost at the cache rate. Anthropic writes are 1.25× (5 minutes) and 2× (1 hour) the input rate, so that part of the savings is negative. The report shows the signed net. A trace with no cache tokens shows `$0`.
+
+Bundled cache rates, USD per 1,000,000 tokens, checked against the vendor page on 2026-10-29. Each of those rows stores `source` and `as_of`. Models with no published cache rate in this table are left blank on purpose. A cache token on one of them uses the input rate, and the report lists `cache_priced_as_input`.
+
+| Model | cache_read | cache_write_5m | cache_write_1h | Source |
+| --- | ---: | ---: | ---: | --- |
+| `gpt-4o` | 1.25 | | | [OpenAI pricing](https://developers.openai.com/api/docs/pricing) |
+| `gpt-4o-mini` | 0.075 | | | same |
+| `gpt-4.1` | 0.50 | | | same |
+| `gpt-4.1-mini` | 0.10 | | | same |
+| `gpt-4.1-nano` | 0.025 | | | same |
+| `o3-mini` | 0.55 | | | same |
+| `o4-mini` | 0.275 | | | same |
+| `claude-sonnet-4` | 0.30 | 3.75 | 6 | [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing) (Claude Sonnet 4) |
+| `claude-3-5-haiku` | 0.08 | 1 | 1.60 | same page (Claude Haiku 3.5) |
+| `claude-3-5-sonnet` | | | | Not on that page. No cache rate is invented. |
+| `gemini-2.5-flash`, `gemini-2.5-pro` | | | | No Gemini cache rate is published in this table. |
+
+`examples/cache_usage/traces.jsonl` is built from those documented usage objects. It is not a live API call. OpenAI is the 2024 announcement (`prompt_tokens` 2006, `cached_tokens` 1920, `completion_tokens` 300). Anthropic is the prompt-caching guide (`input_tokens` 2048, read 1800, 5-minute write 148, 1-hour write 100, `output_tokens` 503).
+
+```bash
+agentcost report examples/cache_usage/traces.jsonl --compare openai anthropic
+```
+
+One task per variant is not enough for a verdict. The cost rows are `$0.005615` (OpenAI, cache savings `$0.0024`) and `$0.015384` (Anthropic, cache savings `$0.004449`). The Anthropic write row is `$0.001155 (5 min $0.000555, 1 h $0.0006)`. Markdown and JSON both carry the breakdown: input, output, cache read, cache write, and cache savings. JSON also splits the write into `cache_write_5m` and `cache_write_1h`.
 
 ## Metrics and verdict
 
-For each variant, observations are tasks. A task's cost, tokens, and steps are the sums across every run of that task, including failed runs. Tokens are input plus output. Steps are LLM calls plus tool calls.
+For each variant, observations are tasks. A task's cost, tokens, and steps are the sums across every run of that task, including failed runs. Tokens are ordinary input, output, cache reads, and cache writes. Steps are LLM calls plus tool calls. The report also lists input cost, output cost, cache read cost, cache write cost, and cache savings versus the input rate.
 
 Reported for each arm:
 
@@ -130,7 +190,7 @@ agentcost report traces.otel.json --compare A B --format both --output report.md
 | `--compare A B` | required | Two variant names. Verdict is about A versus B. |
 | `--format` | `md` | `md`, `json`, or `both`. |
 | `--prices` | bundled table | JSON file merged onto the snapshot. |
-| `--set-price` | none | `MODEL=INPUT:OUTPUT` in USD per 1,000,000 tokens. Repeatable. Wins over the file. |
+| `--set-price` | none | `MODEL=INPUT:OUTPUT` in USD per 1,000,000 tokens. Repeatable. Wins over the file for input and output. Does not set cache rates. |
 | `--output` | stdout | Write the report. With `--format both`, Markdown goes to this path and JSON to the same path with a `.json` suffix. |
 | `--seed` | `42` | Bootstrap seed. |
 | `--bootstrap` | `1000` | Resample count. |
@@ -194,11 +254,16 @@ Lower cost per solved task is better. The denominator is solved tasks. Failed ru
 | Failed runs | 1 | 1 |
 | Failed-run cost | $0.000207 | $0.0098 |
 | Failed-run tokens | 1020 | 2420 |
+| Input cost | $0.002247 | $0.0356 |
+| Output cost | $0.00174 | $0.0372 |
+| Cache read cost | $0 | $0 |
+| Cache write cost | $0 | $0 |
+| Cache savings vs input price | $0 | $0 |
 
-Price table `2026-10-01` (USD per 1,000,000 tokens). Bootstrap 95% intervals, 1000 resamples, seed 42.
+Price table `2026-10-29` (USD per 1,000,000 tokens). Bootstrap 95% intervals, 1000 resamples, seed 42.
 ```
 
-`--format json` emits the same figures under `verdict`, `arms.<variant>.per_task`, `arms.<variant>.cost_per_solved_task`, and `intervals`. Schema version is `0.1`.
+`--format json` emits the same figures under `verdict`, `arms.<variant>.per_task`, `arms.<variant>.cost_per_solved_task`, and `intervals`. Schema version is `0.1`. Cache adds `cost_breakdown`, `cache_savings`, and `cache_priced_as_input` on each arm.
 
 ## Development
 

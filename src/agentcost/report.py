@@ -120,6 +120,15 @@ def render_markdown(report: Report) -> str:
         ("Failed runs", str(left.failed_runs), str(right.failed_runs)),
         ("Failed-run cost", _fmt_money(left.failed_run_cost), _fmt_money(right.failed_run_cost)),
         ("Failed-run tokens", str(left.failed_run_tokens), str(right.failed_run_tokens)),
+        ("Input cost", _fmt_money(left.input_cost), _fmt_money(right.input_cost)),
+        ("Output cost", _fmt_money(left.output_cost), _fmt_money(right.output_cost)),
+        ("Cache read cost", _fmt_money(left.cache_read_cost), _fmt_money(right.cache_read_cost)),
+        ("Cache write cost", _fmt_cache_write(left), _fmt_cache_write(right)),
+        (
+            "Cache savings vs input price",
+            _fmt_money(left.cache_savings),
+            _fmt_money(right.cache_savings),
+        ),
     ]
     unpriced = sorted(set(left.unpriced_models) | set(right.unpriced_models))
     lines = [
@@ -152,8 +161,41 @@ def render_markdown(report: Report) -> str:
             + ", ".join(f"`{name}`" for name in unpriced)
             + "."
         )
+    fallback = sorted(set(left.cache_priced_as_input) | set(right.cache_priced_as_input))
+    if fallback:
+        parts = []
+        for item in fallback:
+            model, component = item.rsplit(" ", 1)
+            parts.append(f"`{model}` {component}")
+        lines.append(
+            "Cache tokens priced at the input rate (the table has no cache price): "
+            + ", ".join(parts)
+            + "."
+        )
     lines.append("")
     return "\n".join(lines)
+
+
+@dataclass(frozen=True, slots=True)
+class _Charge:
+    input_cost: Decimal = Decimal(0)
+    output_cost: Decimal = Decimal(0)
+    cache_read_cost: Decimal = Decimal(0)
+    cache_write_5m_cost: Decimal = Decimal(0)
+    cache_write_1h_cost: Decimal = Decimal(0)
+    cache_savings: Decimal = Decimal(0)
+    unpriced: str | None = None
+    fallbacks: tuple[str, ...] = ()
+
+    @property
+    def total(self) -> Decimal:
+        return (
+            self.input_cost
+            + self.output_cost
+            + self.cache_read_cost
+            + self.cache_write_5m_cost
+            + self.cache_write_1h_cost
+        )
 
 
 @dataclass
@@ -162,16 +204,23 @@ class _Run:
     variant: str
     run_id: str
     cost: Decimal = Decimal(0)
+    input_cost: Decimal = Decimal(0)
+    output_cost: Decimal = Decimal(0)
+    cache_read_cost: Decimal = Decimal(0)
+    cache_write_5m_cost: Decimal = Decimal(0)
+    cache_write_1h_cost: Decimal = Decimal(0)
+    cache_savings: Decimal = Decimal(0)
     tokens: int = 0
     steps: int = 0
     ok: bool = True
     unpriced: set[str] = field(default_factory=set)
+    fallbacks: set[str] = field(default_factory=set)
 
 
 def _require_prices(events: Sequence[Event], prices: PriceTable) -> None:
     missing: set[str] = set()
     for event in events:
-        if event.input_tokens + event.output_tokens <= 0:
+        if _token_total(event) <= 0:
             continue
         if not event.model:
             missing.add("<no model>")
@@ -218,6 +267,13 @@ def _arm_report(
         tokens=_quantiles([Decimal(task.tokens) for task in tasks]),
         steps=_quantiles([Decimal(task.steps) for task in tasks]),
         unpriced_models=unpriced,
+        input_cost=sum((task.input_cost for task in tasks), start=Decimal(0)),
+        output_cost=sum((task.output_cost for task in tasks), start=Decimal(0)),
+        cache_read_cost=sum((task.cache_read_cost for task in tasks), start=Decimal(0)),
+        cache_write_5m_cost=sum((task.cache_write_5m_cost for task in tasks), start=Decimal(0)),
+        cache_write_1h_cost=sum((task.cache_write_1h_cost for task in tasks), start=Decimal(0)),
+        cache_savings=sum((task.cache_savings for task in tasks), start=Decimal(0)),
+        cache_priced_as_input=tuple(sorted({item for task in tasks for item in task.fallbacks})),
     )
 
 
@@ -234,6 +290,13 @@ class _Task:
     failed_cost: Decimal
     failed_tokens: int
     unpriced: frozenset[str]
+    input_cost: Decimal
+    output_cost: Decimal
+    cache_read_cost: Decimal
+    cache_write_5m_cost: Decimal
+    cache_write_1h_cost: Decimal
+    cache_savings: Decimal
+    fallbacks: frozenset[str]
 
 
 def _tasks(
@@ -251,14 +314,21 @@ def _tasks(
         if run is None:
             run = _Run(task_id=event.task_id, variant=variant, run_id=event.run_id)
             runs[key] = run
-        cost, unpriced = _price_event(event, prices, on_missing)
-        run.cost += cost
-        run.tokens += event.input_tokens + event.output_tokens
+        charge = _price_event(event, prices, on_missing)
+        run.cost += charge.total
+        run.input_cost += charge.input_cost
+        run.output_cost += charge.output_cost
+        run.cache_read_cost += charge.cache_read_cost
+        run.cache_write_5m_cost += charge.cache_write_5m_cost
+        run.cache_write_1h_cost += charge.cache_write_1h_cost
+        run.cache_savings += charge.cache_savings
+        run.tokens += _token_total(event)
         run.steps += 1
         if event.status is EventStatus.ERROR:
             run.ok = False
-        if unpriced:
-            run.unpriced.add(unpriced)
+        if charge.unpriced:
+            run.unpriced.add(charge.unpriced)
+        run.fallbacks.update(charge.fallbacks)
     by_task: dict[str, list[_Run]] = {}
     for run in runs.values():
         by_task.setdefault(run.task_id, []).append(run)
@@ -279,29 +349,106 @@ def _tasks(
                 failed_cost=sum((run.cost for run in failed), start=Decimal(0)),
                 failed_tokens=sum(run.tokens for run in failed),
                 unpriced=frozenset(model for run in grouped for model in run.unpriced),
+                input_cost=sum((run.input_cost for run in grouped), start=Decimal(0)),
+                output_cost=sum((run.output_cost for run in grouped), start=Decimal(0)),
+                cache_read_cost=sum((run.cache_read_cost for run in grouped), start=Decimal(0)),
+                cache_write_5m_cost=sum(
+                    (run.cache_write_5m_cost for run in grouped), start=Decimal(0)
+                ),
+                cache_write_1h_cost=sum(
+                    (run.cache_write_1h_cost for run in grouped), start=Decimal(0)
+                ),
+                cache_savings=sum((run.cache_savings for run in grouped), start=Decimal(0)),
+                fallbacks=frozenset(item for run in grouped for item in run.fallbacks),
             )
         )
     return tasks
+
+
+def _token_total(event: Event) -> int:
+    return (
+        event.input_tokens
+        + event.output_tokens
+        + event.cache_read_tokens
+        + event.cache_write_5m_tokens
+        + event.cache_write_1h_tokens
+    )
 
 
 def _price_event(
     event: Event,
     prices: PriceTable,
     on_missing: Literal["error", "zero"],
-) -> tuple[Decimal, str | None]:
-    if event.input_tokens + event.output_tokens <= 0:
-        return Decimal(0), None
+) -> _Charge:
+    if _token_total(event) <= 0:
+        return _Charge()
     price = prices.lookup(event.model) if event.model else None
     if price is None:
         if on_missing == "zero":
-            return Decimal(0), event.model or "<no model>"
+            return _Charge(unpriced=event.model or "<no model>")
         name = event.model or "<no model>"
         raise PriceError(f"No price for model(s): {name}.")
-    cost = (
-        Decimal(event.input_tokens) * price.input_per_million
-        + Decimal(event.output_tokens) * price.output_per_million
-    ) / Decimal(1_000_000)
-    return cost, None
+    model = event.model or "<no model>"
+    input_cost = _portion(event.input_tokens, price.input_per_million)
+    output_cost = _portion(event.output_tokens, price.output_per_million)
+    read_cost, read_gap = _cache_portion(
+        event.cache_read_tokens,
+        price.cache_read_per_million,
+        price.input_per_million,
+        model,
+        "cache_read",
+    )
+    write_5m_cost, write_5m_gap = _cache_portion(
+        event.cache_write_5m_tokens,
+        price.cache_write_5m_per_million,
+        price.input_per_million,
+        model,
+        "cache_write_5m",
+    )
+    write_1h_cost, write_1h_gap = _cache_portion(
+        event.cache_write_1h_tokens,
+        price.cache_write_1h_per_million,
+        price.input_per_million,
+        model,
+        "cache_write_1h",
+    )
+    savings = (
+        _portion(event.cache_read_tokens, price.input_per_million)
+        - read_cost
+        + _portion(event.cache_write_5m_tokens, price.input_per_million)
+        - write_5m_cost
+        + _portion(event.cache_write_1h_tokens, price.input_per_million)
+        - write_1h_cost
+    )
+    return _Charge(
+        input_cost=input_cost,
+        output_cost=output_cost,
+        cache_read_cost=read_cost,
+        cache_write_5m_cost=write_5m_cost,
+        cache_write_1h_cost=write_1h_cost,
+        cache_savings=savings,
+        fallbacks=tuple(item for item in (read_gap, write_5m_gap, write_1h_gap) if item),
+    )
+
+
+def _portion(tokens: int, rate: Decimal) -> Decimal:
+    if tokens == 0:
+        return Decimal(0)
+    return Decimal(tokens) * rate / Decimal(1_000_000)
+
+
+def _cache_portion(
+    tokens: int,
+    specific: Decimal | None,
+    input_rate: Decimal,
+    model: str,
+    component: str,
+) -> tuple[Decimal, str | None]:
+    if tokens <= 0:
+        return Decimal(0), None
+    if specific is None:
+        return _portion(tokens, input_rate), f"{model} {component}"
+    return _portion(tokens, specific), None
 
 
 def _interval_for(
@@ -468,6 +615,16 @@ def _arm_dict(arm: ArmReport) -> dict[str, object]:
         if arm.cost_per_solved_task is None
         else _json_number(arm.cost_per_solved_task),
         "unpriced_models": list(arm.unpriced_models),
+        "cost_breakdown": {
+            "input": _json_number(arm.input_cost),
+            "output": _json_number(arm.output_cost),
+            "cache_read": _json_number(arm.cache_read_cost),
+            "cache_write": _json_number(arm.cache_write_cost),
+            "cache_write_5m": _json_number(arm.cache_write_5m_cost),
+            "cache_write_1h": _json_number(arm.cache_write_1h_cost),
+        },
+        "cache_savings": _json_number(arm.cache_savings),
+        "cache_priced_as_input": list(arm.cache_priced_as_input),
         "per_task": {
             "cost": _quantile_dict(arm.cost),
             "tokens": _quantile_dict(arm.tokens),
@@ -502,7 +659,19 @@ def _fmt_num(value: Decimal) -> str:
 def _fmt_money(value: Decimal | None) -> str:
     if value is None:
         return "n/a"
+    if value < 0:
+        return f"-${_fmt_num(-value)}"
     return f"${_fmt_num(value)}"
+
+
+def _fmt_cache_write(arm: ArmReport) -> str:
+    text = _fmt_money(arm.cache_write_cost)
+    if arm.cache_write_5m_cost == 0 and arm.cache_write_1h_cost == 0:
+        return text
+    return (
+        f"{text} (5 min {_fmt_money(arm.cache_write_5m_cost)}, "
+        f"1 h {_fmt_money(arm.cache_write_1h_cost)})"
+    )
 
 
 def _fmt_span(quantiles: Quantiles, *, money: bool = False) -> str:
