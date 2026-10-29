@@ -22,6 +22,7 @@ Preconditions:
 
 - **Informe por defecto.** Pide el informe de A frente a B. Ejecuta `"$REPO/.cursor/skills/verify-agentcost/scripts/drive.sh" "$EVIDENCE" report-markdown -- "$VENV/bin/agentcost" report "$REPO/examples/research_agent/traces.jsonl" --compare A B`. `$EVIDENCE/report-markdown.exit` es `0` y stdout contiene la línea `**Verdict:** better`.
 - **Cifras del caso.** En ese mismo stdout están `| Tasks | 8 | 8 |`, `| Successful tasks | 8 | 7 |`, `$0.000498375` y `$0.0104`.
+- **Emparejamiento.** El mismo stdout contiene `**Pairing:** paired (8 pairs).` y `The cost interval does not include 0.` stderr está vacío.
 - **Prueba.** Conserva `$EVIDENCE/report-markdown.txt`. Ahí quedan el comando, el código y el informe completo.
 
 ## Gotchas

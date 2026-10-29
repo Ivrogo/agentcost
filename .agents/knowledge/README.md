@@ -20,3 +20,4 @@ Una ficha nueva es un fichero Markdown junto a este README, con título, context
 Entradas:
 
 - [Sufijo `.json` con `--format both`](formato-both-salida-json.md). Un `--output` que ya termina en `.json` se rechaza, porque `with_suffix` no cambiaría la ruta.
+- [Comparación emparejada por task_id](comparacion-emparejada.md). La diferencia es la primera variante menos la segunda. El veredicto emparejado lee `pairing.cost`, no el solape de `intervals`.

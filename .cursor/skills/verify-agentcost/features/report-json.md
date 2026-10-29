@@ -21,6 +21,7 @@ Preconditions:
 
 - **Informe JSON.** Pide el JSON de A frente a B. Ejecuta `"$REPO/.cursor/skills/verify-agentcost/scripts/drive.sh" "$EVIDENCE" report-json -- "$VENV/bin/agentcost" report "$REPO/examples/research_agent/traces.jsonl" --compare A B --format json`. `$EVIDENCE/report-json.exit` es `0` y stderr está vacío.
 - **Veredicto y ramas.** El stdout es JSON. Contiene `"schema_version": "0.1"`, `"verdict": "better"`, `"compare": [` seguido de `"A"` y `"B"`, `"cost_per_solved_task": 0.000498375` en la rama A y `"cost_per_solved_task": 0.0104` en la rama B. La rama A tiene `"tasks": 8` y `"successful_tasks": 8`. La rama B tiene `"tasks": 8` y `"successful_tasks": 7`.
+- **Emparejamiento.** El mismo JSON trae `"mode": "paired"`, `"pairs": 8` y `"includes_zero": false` dentro de `pairing.metrics.cost`. `pairing.warning` es `null`. stderr sigue vacío: los ocho `task_id` están en las dos variantes.
 - **Prueba.** Conserva `$EVIDENCE/report-json.txt` y `$EVIDENCE/report-json.stdout.txt`. Vuelve a parsear el stdout con el Python del mismo venv; no te fíes de que el proceso haya salido 0.
 
 ## Gotchas
