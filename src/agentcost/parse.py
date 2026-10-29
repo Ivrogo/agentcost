@@ -58,9 +58,17 @@ def parse_jsonl(text: str, filename: str = "<memory>") -> list[Event]:
     """Parse one event per line.
 
     Canonical object: ``task_id``, ``variant``, ``run_id``, ``kind`` (``llm`` or
-    ``tool``), ``tokens`` (``input`` / ``output``), ``model``, ``status``
-    (``ok`` or ``error``). Flat ``input_tokens`` / ``output_tokens`` and a
-    boolean ``ok`` field are accepted.
+    ``tool``), ``tokens`` (``input`` / ``output``, plus optional disjoint
+    ``cache_read``, ``cache_write_5m``, and ``cache_write_1h``), ``model``,
+    ``status`` (``ok`` or ``error``). Flat ``input_tokens`` / ``output_tokens``
+    and a boolean ``ok`` field are accepted.
+
+    ``provider`` plus ``usage`` copies a documented provider payload instead of
+    the disjoint ``tokens`` object. OpenAI's ``prompt_tokens`` / ``input_tokens``
+    already include ``cached_tokens``, so those are subtracted. Anthropic's
+    ``cache_read_input_tokens`` and ``cache_creation_input_tokens`` are separate
+    from ``input_tokens``, so they are added. The two shapes together are
+    rejected.
     """
     events: list[Event] = []
     for line_number, line in enumerate(text.splitlines(), start=1):
@@ -112,7 +120,7 @@ def _event_from_object(payload: dict[str, Any]) -> Event:
     if model is not None:
         model = str(model).strip() or None
     kind = _kind(payload, model)
-    input_tokens, output_tokens = _tokens(payload)
+    input_tokens, output_tokens, cache_read, cache_write_5m, cache_write_1h = _tokens(payload)
     status = _status(payload)
     return Event(
         task_id=task_id,
@@ -123,6 +131,9 @@ def _event_from_object(payload: dict[str, Any]) -> Event:
         output_tokens=output_tokens,
         model=model,
         status=status,
+        cache_read_tokens=cache_read,
+        cache_write_5m_tokens=cache_write_5m,
+        cache_write_1h_tokens=cache_write_1h,
     )
 
 
@@ -144,16 +155,228 @@ def _kind(payload: dict[str, Any], model: str | None) -> EventKind:
     raise ParseError(f"kind must be 'llm' or 'tool', got {payload['kind']!r}")
 
 
-def _tokens(payload: dict[str, Any]) -> tuple[int, int]:
+_DIRECT_TOKEN_KEYS = (
+    "tokens",
+    "input_tokens",
+    "output_tokens",
+    "cache_read_tokens",
+    "cache_write_5m_tokens",
+    "cache_write_1h_tokens",
+)
+
+
+def _tokens(payload: dict[str, Any]) -> tuple[int, int, int, int, int]:
+    usage = payload.get("usage")
+    if usage is not None:
+        if not isinstance(usage, dict):
+            raise ParseError("usage must be an object")
+        if any(key in payload for key in _DIRECT_TOKEN_KEYS):
+            raise ParseError(
+                "usage cannot be combined with tokens or input_tokens; "
+                "pass the provider usage or the disjoint token counts, not both"
+            )
+        return _tokens_from_usage(payload.get("provider"), usage)
     nested = payload.get("tokens")
     if isinstance(nested, dict):
-        return _non_negative_int(nested.get("input", 0), "tokens.input"), _non_negative_int(
-            nested.get("output", 0), "tokens.output"
+        cache_read = _non_negative_int(nested.get("cache_read", 0), "tokens.cache_read")
+        cache_write_5m = _non_negative_int(nested.get("cache_write_5m", 0), "tokens.cache_write_5m")
+        cache_write_1h = _non_negative_int(nested.get("cache_write_1h", 0), "tokens.cache_write_1h")
+        _same_cache_count(nested, payload, "cache_read", cache_read, "cache_read_tokens")
+        _same_cache_count(
+            nested, payload, "cache_write_5m", cache_write_5m, "cache_write_5m_tokens"
+        )
+        _same_cache_count(
+            nested, payload, "cache_write_1h", cache_write_1h, "cache_write_1h_tokens"
+        )
+        return (
+            _non_negative_int(nested.get("input", 0), "tokens.input"),
+            _non_negative_int(nested.get("output", 0), "tokens.output"),
+            cache_read,
+            cache_write_5m,
+            cache_write_1h,
         )
     return (
         _non_negative_int(payload.get("input_tokens", 0), "input_tokens"),
         _non_negative_int(payload.get("output_tokens", 0), "output_tokens"),
+        _non_negative_int(payload.get("cache_read_tokens", 0), "cache_read_tokens"),
+        _non_negative_int(payload.get("cache_write_5m_tokens", 0), "cache_write_5m_tokens"),
+        _non_negative_int(payload.get("cache_write_1h_tokens", 0), "cache_write_1h_tokens"),
     )
+
+
+def _same_cache_count(
+    nested: dict[str, Any],
+    payload: dict[str, Any],
+    nested_name: str,
+    nested_value: int,
+    flat_name: str,
+) -> None:
+    """A ``tokens`` object is the source of truth. A flat cache field must match it.
+
+    Dropping the flat field would bill those tokens at the ordinary input rate, or
+    not at all, without a signal. Input and output keep the v0.1 rule: when
+    ``tokens`` is present, flat ``input_tokens`` / ``output_tokens`` are ignored.
+    """
+    if flat_name not in payload:
+        return
+    flat_value = _non_negative_int(payload[flat_name], flat_name)
+    if nested_name not in nested:
+        raise ParseError(
+            f"{flat_name} is set alongside tokens; put {nested_name} inside tokens "
+            "so that count is not dropped"
+        )
+    if flat_value != nested_value:
+        raise ParseError(
+            f"tokens.{nested_name} ({nested_value}) and {flat_name} ({flat_value}) disagree"
+        )
+
+
+def _tokens_from_usage(provider: object, usage: dict[str, Any]) -> tuple[int, int, int, int, int]:
+    if not isinstance(provider, str) or not provider.strip():
+        raise ParseError("usage requires provider 'openai' or 'anthropic'")
+    name = provider.strip().lower()
+    if name == "openai":
+        return _openai_usage(usage)
+    if name == "anthropic":
+        return _anthropic_usage(usage)
+    raise ParseError(f"usage provider must be 'openai' or 'anthropic', got {provider!r}")
+
+
+def _openai_usage(usage: dict[str, Any]) -> tuple[int, int, int, int, int]:
+    """OpenAI includes cached tokens in the prompt/input total. Subtract them."""
+    prompt_details = _details(usage, "prompt_tokens_details")
+    input_details = _details(usage, "input_tokens_details")
+    gross = _agree(
+        "usage.prompt_tokens",
+        _optional_int(usage, "prompt_tokens"),
+        "usage.input_tokens",
+        _optional_int(usage, "input_tokens"),
+    )
+    output = _agree(
+        "usage.completion_tokens",
+        _optional_int(usage, "completion_tokens"),
+        "usage.output_tokens",
+        _optional_int(usage, "output_tokens"),
+    )
+    cached = _agree(
+        "usage.prompt_tokens_details.cached_tokens",
+        _optional_int(prompt_details, "cached_tokens"),
+        "usage.input_tokens_details.cached_tokens",
+        _optional_int(input_details, "cached_tokens"),
+    )
+    gross = 0 if gross is None else gross
+    output = 0 if output is None else output
+    cached = 0 if cached is None else cached
+    writes = _openai_write_tokens(prompt_details) + _openai_write_tokens(input_details)
+    if writes:
+        raise ParseError(
+            "OpenAI cache_write_tokens is not priced in this version. "
+            "input_tokens already includes those writes, so ignoring the field would "
+            "bill them as ordinary input. This version prices cached_tokens reads, "
+            "and Anthropic 5-minute and 1-hour writes."
+        )
+    if "total_tokens" in usage:
+        total = _non_negative_int(usage["total_tokens"], "usage.total_tokens")
+        if total != gross + output:
+            raise ParseError(
+                f"usage.total_tokens is {total} but prompt/input plus completion/output "
+                f"is {gross + output}. Cached tokens are already inside the input count."
+            )
+    if cached > gross:
+        raise ParseError(
+            f"cached_tokens ({cached}) exceed prompt/input tokens ({gross}). "
+            "OpenAI includes cached_tokens in that total."
+        )
+    return gross - cached, output, cached, 0, 0
+
+
+def _openai_write_tokens(details: dict[str, Any]) -> int:
+    write = _optional_int(details, "cache_write_tokens") or 0
+    nested = details.get("cache_write_tokens_details")
+    if nested is None:
+        return write
+    if not isinstance(nested, dict):
+        raise ParseError("cache_write_tokens_details must be an object")
+    parts = (_optional_int(nested, "ttl_30m_tokens") or 0) + (
+        _optional_int(nested, "ttl_12h_tokens") or 0
+    )
+    if write and parts and write != parts:
+        raise ParseError(
+            f"cache_write_tokens is {write} but ttl_30m_tokens plus ttl_12h_tokens is {parts}"
+        )
+    return write or parts
+
+
+def _anthropic_usage(usage: dict[str, Any]) -> tuple[int, int, int, int, int]:
+    """Anthropic reports cache reads and writes separately from input_tokens."""
+    input_tokens = _non_negative_int(usage.get("input_tokens", 0), "usage.input_tokens")
+    output_tokens = _non_negative_int(usage.get("output_tokens", 0), "usage.output_tokens")
+    cache_read = _non_negative_int(
+        usage.get("cache_read_input_tokens", 0), "usage.cache_read_input_tokens"
+    )
+    has_total = "cache_creation_input_tokens" in usage
+    total = (
+        _non_negative_int(usage["cache_creation_input_tokens"], "usage.cache_creation_input_tokens")
+        if has_total
+        else None
+    )
+    creation = usage.get("cache_creation")
+    if creation is None:
+        split = False
+        five = 0
+        one = 0
+    elif not isinstance(creation, dict):
+        raise ParseError("usage.cache_creation must be an object")
+    else:
+        split = "ephemeral_5m_input_tokens" in creation or "ephemeral_1h_input_tokens" in creation
+        five = _non_negative_int(
+            creation.get("ephemeral_5m_input_tokens", 0),
+            "usage.cache_creation.ephemeral_5m_input_tokens",
+        )
+        one = _non_negative_int(
+            creation.get("ephemeral_1h_input_tokens", 0),
+            "usage.cache_creation.ephemeral_1h_input_tokens",
+        )
+    if split:
+        if has_total and five + one != total:
+            raise ParseError(
+                f"cache_creation_input_tokens is {total} but ephemeral_5m_input_tokens "
+                f"({five}) plus ephemeral_1h_input_tokens ({one}) is {five + one}. "
+                "Those fields are the same writes, not an extra count."
+            )
+    elif has_total:
+        five, one = total or 0, 0
+    return input_tokens, output_tokens, cache_read, five, one
+
+
+def _details(payload: dict[str, Any], field: str) -> dict[str, Any]:
+    value = payload.get(field)
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ParseError(f"{field} must be an object")
+    return value
+
+
+def _agree(
+    left_name: str,
+    left: int | None,
+    right_name: str,
+    right: int | None,
+) -> int | None:
+    if left is None:
+        return right
+    if right is None:
+        return left
+    if left != right:
+        raise ParseError(f"{left_name} ({left}) and {right_name} ({right}) disagree")
+    return left
+
+
+def _optional_int(payload: dict[str, Any], field: str) -> int | None:
+    if field not in payload or payload[field] is None:
+        return None
+    return _non_negative_int(payload[field], field)
 
 
 def _non_negative_int(value: object, field: str) -> int:
@@ -284,6 +507,17 @@ def _span_to_raw(
     output_tokens = _usage_tokens(
         merged, "gen_ai.usage.output_tokens", "gen_ai.usage.completion_tokens"
     )
+    cache_read = _optional_usage(merged, "gen_ai.usage.cache_read.input_tokens")
+    cache_write = _optional_usage(merged, "gen_ai.usage.cache_write.input_tokens")
+    if cache_read or cache_write:
+        if cache_read + cache_write > input_tokens:
+            raise ParseError(
+                f"{filename}: span {index}: gen_ai.usage.cache_read.input_tokens ({cache_read}) "
+                f"and gen_ai.usage.cache_write.input_tokens ({cache_write}) exceed "
+                f"gen_ai.usage.input_tokens ({input_tokens}). "
+                "OpenTelemetry includes cache tokens in input tokens."
+            )
+        input_tokens -= cache_read + cache_write
     task_id = merged.get("agentcost.task_id") or merged.get("gen_ai.conversation.id")
     if not isinstance(task_id, str) or not task_id.strip():
         raise ParseError(
@@ -314,10 +548,18 @@ def _span_to_raw(
             output_tokens=output_tokens,
             model=model or None,
             status=_span_status(span, merged),
+            cache_read_tokens=cache_read,
+            cache_write_5m_tokens=cache_write,
         ),
         trace_id=group_id,
         wrapper=operation in _WRAPPER_OPS,
     )
+
+
+def _optional_usage(attributes: dict[str, Any], name: str) -> int:
+    if name not in attributes:
+        return 0
+    return _non_negative_int(attributes[name], name)
 
 
 def _usage_tokens(attributes: dict[str, Any], primary: str, legacy: str) -> int:

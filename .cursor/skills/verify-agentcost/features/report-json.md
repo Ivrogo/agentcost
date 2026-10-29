@@ -27,5 +27,5 @@ Preconditions:
 
 - Sin `--format json` la salida es Markdown y `json.loads` falla. Eso no verifica este feature.
 - El auxiliar sale 0 cuando guarda la evidencia. El 0 de la CLI está en `report-json.exit`.
-- `0.000498375` y `0.0104` son los números de la tabla `2026-10-01` sobre esta traza. Si la tabla o la traza cambian, actualiza las cifras.
+- `0.000498375` y `0.0104` son los números de esta traza con las tarifas de entrada y salida que ya estaban en `2026-10-01`. La tabla empaquetada pasó a `2026-10-29` al añadir precios de caché; esta traza no tiene tokens de caché, así que el coste no cambia. Si la tabla o la traza cambian, actualiza las cifras.
 - Este feature es la prueba de punta a punta de la skill. Los otros features siguen siendo obligatorios cuando el mapa se recorre entero.
