@@ -1,0 +1,105 @@
+{
+  "status": "passed",
+  "task": "M04-precios-claude-5",
+  "checks": [
+    {
+      "name": "pytest_3_10",
+      "command": "/tmp/agentcost-verify-20261029104524-3579/venv-3.10/bin/pytest -q",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0, 82 passed. Doctor editable pasó: el módulo es src/agentcost y la versión es 0.1.0. Python 3.10.22.",
+      "evidence": "evidencias.log#pytest-3.10.txt"
+    },
+    {
+      "name": "pytest_3_11",
+      "command": "/tmp/agentcost-verify-20261029104524-3579/venv-3.11/bin/pytest -q",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0, 82 passed. Doctor editable pasó. Python 3.11.18.",
+      "evidence": "evidencias.log#pytest-3.11.txt"
+    },
+    {
+      "name": "pytest_3_12",
+      "command": "/tmp/agentcost-verify-20261029104524-3579/venv-3.12/bin/pytest -q",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0, 82 passed. Doctor editable pasó. Python 3.12.16.",
+      "evidence": "evidencias.log#pytest-3.12.txt"
+    },
+    {
+      "name": "ruff_check",
+      "command": "/tmp/agentcost-verify-20261029104524-3579/venv-3.12/bin/ruff check .",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0. El texto es All checks passed.",
+      "evidence": "evidencias.log#ruff-check.txt"
+    },
+    {
+      "name": "ruff_format",
+      "command": "/tmp/agentcost-verify-20261029104524-3579/venv-3.12/bin/ruff format --check .",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0, 57 files already formatted. No aparece No Python files found.",
+      "evidence": "evidencias.log#ruff-format.txt"
+    },
+    {
+      "name": "clean_install_3_10",
+      "command": "/home/ubuntu/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 -m pip install .",
+      "result": "pass",
+      "detail": "venv nuevo /tmp/agentcost-verify-20261029104524-3579/clean-3.10. Doctor clean: agentcost 0.1.0, módulo dentro del venv, --help lista report. Python 3.10.22.",
+      "evidence": "evidencias.log#doctor-clean-3.10.txt"
+    },
+    {
+      "name": "clean_install_3_11",
+      "command": "/home/ubuntu/.local/share/uv/python/cpython-3.11-linux-x86_64-gnu/bin/python3.11 -m pip install .",
+      "result": "pass",
+      "detail": "venv nuevo clean-3.11. Doctor clean pasó. Python 3.11.18.",
+      "evidence": "evidencias.log#doctor-clean-3.11.txt"
+    },
+    {
+      "name": "clean_install_3_12",
+      "command": "/home/ubuntu/.local/share/uv/python/cpython-3.12-linux-x86_64-gnu/bin/python3.12 -m pip install .",
+      "result": "pass",
+      "detail": "venv nuevo clean-3.12. Doctor clean pasó. Python 3.12.16.",
+      "evidence": "evidencias.log#doctor-clean-3.12.txt"
+    },
+    {
+      "name": "e2e_cli_json",
+      "command": "agentcost report examples/research_agent/traces.jsonl --compare A B --format json",
+      "result": "pass",
+      "detail": "venv limpio 3.12, cwd fuera del árbol, salida 0, stderr vacío. verdict better; A 0.000498375; B 0.0104; pairs 8; includes_zero false. El mismo informe sale 0 en los venv limpios 3.10 y 3.11.",
+      "evidence": "evidencias.log#report-json.stdout.txt"
+    },
+    {
+      "name": "e2e_import_claude",
+      "command": "agentcost import claude-code claude-session-a.jsonl --variant A; import claude-session-b.jsonl --variant B; agentcost report claude.jsonl --compare A B",
+      "result": "pass",
+      "detail": "venv limpio 3.12, cwd fuera del árbol, sin --allow-unpriced, salida 0. Sesiones adjuntas: A $0.1333972, B $1.883338; escritura 1 h $0.06594 y $0.66322. stderr: No shared task_id. La receta de fixtures del mapa da las mismas cifras. El JSONL no contiene el texto del mensaje.",
+      "evidence": "evidencias.log#report-claude.stdout.txt"
+    },
+    {
+      "name": "ci_otros_sistemas",
+      "command": "not run",
+      "result": "skipped",
+      "detail": "Esta máquina es Linux. macOS, Windows y pipx los ejecuta .github/workflows/ci.yml.",
+      "evidence": "evidencias.log#scope.txt"
+    }
+  ],
+  "environment": {
+    "runtime": "venv limpio",
+    "python": "3.10.22, 3.11.18, 3.12.16",
+    "base_commit": "d11fb2d"
+  },
+  "model_tier_used": "standard",
+  "escalations": 0,
+  "evidence": [
+    "evidencias.log#pytest-red.txt",
+    "evidencias.log#pytest-3.10.txt",
+    "evidencias.log#pytest-3.11.txt",
+    "evidencias.log#pytest-3.12.txt",
+    "evidencias.log#ruff-check.txt",
+    "evidencias.log#ruff-format.txt",
+    "evidencias.log#doctor-clean-3.10.txt",
+    "evidencias.log#doctor-clean-3.11.txt",
+    "evidencias.log#doctor-clean-3.12.txt",
+    "evidencias.log#report-json.stdout.txt",
+    "evidencias.log#report-claude.stdout.txt",
+    "evidencias.log#import-claude.stdout.txt",
+    "evidencias.log#scope.txt"
+  ]
+}
