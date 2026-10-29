@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -93,8 +94,10 @@ def _report(*args: str):
 def test_report_help_lists_pairing_flags() -> None:
     result = runner.invoke(app, ["report", "--help"])
     assert result.exit_code == 0
-    assert "--paired" in result.stdout
-    assert "--unpaired" in result.stdout
+    # Rich bolds each hyphen, so "--paired" is not contiguous when color is on.
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+    assert "--paired" in plain
+    assert "--unpaired" in plain
 
 
 def test_format_both_refuses_output_that_already_ends_in_json(tmp_path: Path) -> None:
