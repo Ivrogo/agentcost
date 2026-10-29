@@ -51,6 +51,9 @@ rm -f "$sock"
   if [[ -n "${VIRTUAL_ENV:-}" ]]; then
     printf 'export VIRTUAL_ENV=%q\n' "$VIRTUAL_ENV"
   fi
+  if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    printf 'export GITHUB_STEP_SUMMARY=%q\n' "$GITHUB_STEP_SUMMARY"
+  fi
   printf 'cd %q\n' "$PWD"
   printf '%s > %q 2> %q\n' "$cmd" "$stdout" "$stderr"
   printf '%s\n' 'status=$?'
