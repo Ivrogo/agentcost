@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import sys
+from collections.abc import Callable, Sequence
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated
@@ -10,6 +12,12 @@ from typing import Annotated
 import typer
 
 from agentcost.errors import AgentCostError, CompareError, PriceError
+from agentcost.local_logs import (
+    ImportedEvent,
+    load_claude_code,
+    load_codex_cli,
+    render_imported_jsonl,
+)
 from agentcost.pairing import RequestedPairing
 from agentcost.parse import load_traces
 from agentcost.pricing import ModelPrice, PriceTable
@@ -202,3 +210,76 @@ def _parse_set_price(raw: str) -> tuple[str, ModelPrice]:
     if input_price < 0 or output_price < 0:
         raise PriceError(f"--set-price {raw!r} has a negative price")
     return model, ModelPrice(input_per_million=input_price, output_per_million=output_price)
+
+
+import_app = typer.Typer(
+    help="Read local Claude Code or Codex CLI logs into an agentcost JSONL trace.",
+    add_completion=False,
+    no_args_is_help=True,
+)
+app.add_typer(import_app, name="import")
+
+
+def _import_logs(
+    loader: Callable[..., Sequence[ImportedEvent]],
+    path: str | None,
+    variant: str,
+    output: Path | None,
+) -> None:
+    try:
+        items = loader(
+            Path(path) if path else None,
+            variant=variant,
+            home=Path.home(),
+            environ=os.environ,
+        )
+        text = render_imported_jsonl(items)
+    except AgentCostError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    if output is None:
+        typer.echo(text, nl=False)
+        return
+    output.write_text(text, encoding="utf-8", newline="\n")
+
+
+@import_app.command("claude-code")
+def import_claude_code_logs(
+    path: Annotated[
+        str | None,
+        typer.Argument(
+            help="JSONL file or directory. Omit to read ~/.claude/projects or CLAUDE_CONFIG_DIR.",
+        ),
+    ] = None,
+    variant: Annotated[
+        str,
+        typer.Option("--variant", help="Variant label stored on every imported session."),
+    ] = "default",
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", help="Write the JSONL trace here instead of stdout."),
+    ] = None,
+) -> None:
+    """Import Claude Code sessions. One session is one task."""
+    _import_logs(load_claude_code, path, variant, output)
+
+
+@import_app.command("codex")
+def import_codex_logs(
+    path: Annotated[
+        str | None,
+        typer.Argument(
+            help="Rollout file or directory. Omit to read ~/.codex/sessions or CODEX_HOME.",
+        ),
+    ] = None,
+    variant: Annotated[
+        str,
+        typer.Option("--variant", help="Variant label stored on every imported rollout."),
+    ] = "default",
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", help="Write the JSONL trace here instead of stdout."),
+    ] = None,
+) -> None:
+    """Import Codex CLI rollouts. One rollout is one task."""
+    _import_logs(load_codex_cli, path, variant, output)
