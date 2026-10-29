@@ -1,6 +1,7 @@
 """Cost per task for LLM agents, and an A/B comparison of two variants."""
 
 from agentcost.errors import AgentCostError, CompareError, ParseError, PriceError
+from agentcost.local_logs import load_claude_code, load_codex_cli, render_imported_jsonl
 from agentcost.models import (
     ArmReport,
     Event,
@@ -42,10 +43,13 @@ __all__ = [
     "__version__",
     "assess_pairing",
     "compare",
+    "load_claude_code",
+    "load_codex_cli",
     "load_traces",
     "parse_jsonl",
     "parse_otel",
     "parse_traces",
+    "render_imported_jsonl",
     "render_json",
     "render_markdown",
 ]

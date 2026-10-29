@@ -41,3 +41,4 @@ Cada fichero empieza con un H1 y un párrafo. Después van exactamente cuatro H2
 - [Errores de la CLI](./expected-error.md) cubre un formato inválido y el fragmento OTel de una sola variante.
 - [Ayuda](./help.md) cubre `agentcost --help` y `agentcost report --help`.
 - [Puerta de CI](./ci-gate.md) cubre `--fail-if-worse` y `--max-regression` sobre `examples/research_agent/traces.jsonl`, con un caso que sale 0 y otro que sale 3.
+- [Importar logs locales](./import-local-logs.md) cubre `agentcost import` de Claude Code y de Codex, y el informe que sale de esa traza.

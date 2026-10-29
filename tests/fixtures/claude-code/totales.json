@@ -1,0 +1,36 @@
+{
+ "claude-session-a": {
+  "lineas_con_uso": 2,
+  "duplicados": 1,
+  "costUSD_presente": false,
+  "totales": {
+   "claude-sonnet-5": {
+    "input_tokens": 15396,
+    "output_tokens": 3201,
+    "cache_creation_input_tokens": 16485,
+    "cache_read_input_tokens": 23276,
+    "ephemeral_1h_input_tokens": 16485,
+    "ephemeral_5m_input_tokens": 0,
+    "costUSD": 0
+   }
+  },
+  "coincide_con_raw": true
+ },
+ "claude-session-b": {
+  "lineas_con_uso": 4,
+  "duplicados": 2,
+  "costUSD_presente": false,
+  "totales": {
+   "claude-fable-5": {
+    "input_tokens": 15714,
+    "output_tokens": 20371,
+    "cache_creation_input_tokens": 33161,
+    "cache_read_input_tokens": 44428,
+    "ephemeral_1h_input_tokens": 33161,
+    "ephemeral_5m_input_tokens": 0,
+    "costUSD": 0
+   }
+  },
+  "coincide_con_raw": true
+ }
+}

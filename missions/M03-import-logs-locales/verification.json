@@ -1,0 +1,119 @@
+{
+  "status": "passed",
+  "task": "M03-import-logs-locales",
+  "checks": [
+    {
+      "name": "pytest_3_10",
+      "command": "/tmp/agentcost-verify-20261029103012-3966/venv-3.10/bin/pytest -q",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0, 81 passed. Doctor editable pasó: el módulo es src/agentcost y la versión es 0.1.0. Python 3.10.22.",
+      "evidence": "evidencias.log#pytest-3.10.txt"
+    },
+    {
+      "name": "pytest_3_11",
+      "command": "/tmp/agentcost-verify-20261029103012-3966/venv-3.11/bin/pytest -q",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0, 81 passed. Doctor editable pasó. Python 3.11.18.",
+      "evidence": "evidencias.log#pytest-3.11.txt"
+    },
+    {
+      "name": "pytest_3_12",
+      "command": "/tmp/agentcost-verify-20261029103012-3966/venv-3.12/bin/pytest -q",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0, 81 passed. Doctor editable pasó. Python 3.12.16.",
+      "evidence": "evidencias.log#pytest-3.12.txt"
+    },
+    {
+      "name": "ruff_check",
+      "command": "/tmp/agentcost-verify-20261029103012-3966/venv-3.12/bin/ruff check .",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0. El texto es All checks passed.",
+      "evidence": "evidencias.log#ruff-check.txt"
+    },
+    {
+      "name": "ruff_format",
+      "command": "/tmp/agentcost-verify-20261029103012-3966/venv-3.12/bin/ruff format --check .",
+      "result": "pass",
+      "detail": "cwd /workspace, salida 0, 54 files already formatted. No aparece No Python files found.",
+      "evidence": "evidencias.log#ruff-format.txt"
+    },
+    {
+      "name": "clean_install_3_10",
+      "command": "/home/ubuntu/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 -m pip install .",
+      "result": "pass",
+      "detail": "venv nuevo, Doctor clean: el módulo está bajo el venv, la versión es 0.1.0 y agentcost --help contiene report. Python 3.10.22.",
+      "evidence": "evidencias.log#doctor-clean-3.10.txt"
+    },
+    {
+      "name": "clean_install_3_11",
+      "command": "/home/ubuntu/.local/share/uv/python/cpython-3.11-linux-x86_64-gnu/bin/python3.11 -m pip install .",
+      "result": "pass",
+      "detail": "venv nuevo, Doctor clean. Python 3.11.18.",
+      "evidence": "evidencias.log#doctor-clean-3.11.txt"
+    },
+    {
+      "name": "clean_install_3_12",
+      "command": "/home/ubuntu/.local/share/uv/python/cpython-3.12-linux-x86_64-gnu/bin/python3.12 -m pip install .",
+      "result": "pass",
+      "detail": "venv nuevo, Doctor clean. Python 3.12.16.",
+      "evidence": "evidencias.log#doctor-clean-3.12.txt"
+    },
+    {
+      "name": "e2e_cli_json",
+      "command": "agentcost report examples/research_agent/traces.jsonl --compare A B --format json",
+      "result": "pass",
+      "detail": "venv limpio, cwd fuera del árbol, salida 0 en 3.10, 3.11 y 3.12; el JSON coincide; verdict better; A 0.000498375; B 0.0104; pairing paired, 8 pares, includes_zero false; stderr vacío.",
+      "evidence": "evidencias.log#report-json-3.12.txt"
+    },
+    {
+      "name": "e2e_import_claude",
+      "command": "agentcost import claude-code tests/fixtures/claude-code/claude-session-a.jsonl --variant A; import claude-session-b.jsonl --variant B; agentcost report claude.jsonl --compare A B --allow-unpriced",
+      "result": "pass",
+      "detail": "venv limpio 3.12, cwd /tmp/.../work, salida 0. Tokens 58358 y 113674. Unpriced models: claude-sonnet-5, claude-fable-5. Coste $0. Sesiones distintas: unpaired y aviso de task_id. El JSONL no guarda el message id.",
+      "evidence": "evidencias.log#import-claude.txt"
+    },
+    {
+      "name": "e2e_import_codex",
+      "command": "agentcost import codex tests/fixtures/codex/rollout-synthetic-a.jsonl --variant A; import rollout-synthetic-b.jsonl --variant B; agentcost report codex.jsonl --compare A B --format json",
+      "result": "pass",
+      "detail": "venv limpio 3.12, salida 0. Fixture sintética. A total_cost 0.0002655, B 0.004125, unpriced_models vacío. El JSONL no contiene SYNTHETIC_PROMPT_DO_NOT_KEEP.",
+      "evidence": "evidencias.log#import-codex.txt"
+    },
+    {
+      "name": "e2e_import_paired",
+      "command": "agentcost import claude-code claude-session-a.jsonl --variant A; el mismo fichero --variant B; agentcost report pair.jsonl --compare A B --paired --allow-unpriced --format json",
+      "result": "pass",
+      "detail": "venv limpio 3.12, salida 0. pairing.mode paired, pairs 1, mean_difference 0. Veredicto inconclusive: Fewer than 5 paired tasks (1).",
+      "evidence": "evidencias.log#import-paired.txt"
+    },
+    {
+      "name": "ci_otros_sistemas",
+      "command": "not run",
+      "result": "skipped",
+      "detail": "Esta máquina es Linux. macOS, Windows y pipx los ejecuta .github/workflows/ci.yml.",
+      "evidence": "evidencias.log#scope.txt"
+    }
+  ],
+  "environment": {
+    "runtime": "venv limpio",
+    "python": "3.10.22, 3.11.18, 3.12.16",
+    "base_commit": "cbedc0dcf9c677378a2c6e61569931e585cccd2d"
+  },
+  "model_tier_used": "standard",
+  "escalations": 0,
+  "evidence": [
+    "evidencias.log#pytest-3.10.txt",
+    "evidencias.log#pytest-3.11.txt",
+    "evidencias.log#pytest-3.12.txt",
+    "evidencias.log#ruff-check.txt",
+    "evidencias.log#ruff-format.txt",
+    "evidencias.log#doctor-clean-3.10.txt",
+    "evidencias.log#doctor-clean-3.11.txt",
+    "evidencias.log#doctor-clean-3.12.txt",
+    "evidencias.log#report-json-3.12.txt",
+    "evidencias.log#import-claude.txt",
+    "evidencias.log#import-codex.txt",
+    "evidencias.log#import-paired.txt",
+    "evidencias.log#scope.txt"
+  ]
+}

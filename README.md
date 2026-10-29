@@ -192,6 +192,43 @@ If `auto` finds no shared id, the report and stderr both say `No shared task_id 
 
 JSON `intervals` is still each arm's cost-per-solved-task interval, on the tasks that entered the report. The paired interval is `pairing.metrics.cost`. Those two are not the same number: cost per solved task divides by solved tasks, and the paired mean divides by paired tasks. They can disagree when the success counts differ. `--fail-if-worse` on cost reads that verdict, which in the paired mode comes from `pairing.cost`. `--max-regression` reads the lower bound of `relative_interval` on the chosen metric. Traces have no latency field, so latency is not compared.
 
+## Import local logs
+
+`agentcost import` reads logs that are already on disk and writes an agentcost JSONL trace. It does not call a model and it does not upload the log. Message text is dropped. The trace keeps token counts, the model name, the session id, and, when Claude recorded it, `logged_cost_usd`. That logged figure is not the billed cost. The report prices the trace with the table.
+
+One session is one task and one run. `task_id` and `run_id` are the Claude `sessionId`, or the Codex rollout id (`session_meta.payload.id`, otherwise the file name). `--variant` is the arm (default `default`). Import the same session id twice with two variant names and `agentcost report --compare A B` pairs those tasks. `--paired` requires at least one shared id. Two different sessions do not share an id: `--paired` exits 1, and the default report stays unpaired and says so.
+
+### Claude Code
+
+Only `assistant` lines with `message.usage` count. The same `message.id` and `requestId` count once, including a copy in another file. Without a request id, a `msg_` or `resp_` id collapses inside the session across timestamps; any other id also keeps the timestamp. A sidechain replay that copies a parent message under a new request id is counted again. The usage object is Anthropic's: `input_tokens` stays ordinary input, `cache_read_input_tokens` is a read, and `cache_creation.ephemeral_5m_input_tokens` / `ephemeral_1h_input_tokens` are the two writes. Without that split, `cache_creation_input_tokens` is a 5-minute write.
+
+```bash
+agentcost import claude-code session.jsonl --variant A --output a.jsonl
+agentcost import claude-code --variant A
+```
+
+With no path, the command reads `~/.claude/projects/**/*.jsonl`. `CLAUDE_CONFIG_DIR`, when set, replaces that directory. It is a comma-separated list of config directories that contain `projects/`, or a `projects/` directory itself. A path may be one file or a directory, and nothing outside it is read. A symlink that resolves outside a scanned directory is skipped.
+
+`claude-sonnet-5` and `claude-fable-5`, the names in the anonymized fixtures, are not in the price table. `--allow-unpriced` names them and prices them at zero. Without the flag the report exits 1 and names them. No price is added for them.
+
+### Codex CLI
+
+`token_count` events. `total_token_usage` is cumulative and `last_token_usage` is the turn. When the total advances, the turn is `last_token_usage`. A repeated total adds nothing. If the event has no last usage, the turn is the difference of the totals. `cached_input_tokens` is inside `input_tokens` and is subtracted. `reasoning_output_tokens` is already inside `output_tokens` and is not added. The model comes from `turn_context`, or from the event when the event names one. A missing model stays missing. A non-zero `cache_write_input_tokens` is an error: those tokens sit inside `input_tokens`, and this table has no price for that Codex write.
+
+```bash
+agentcost import codex rollout.jsonl --variant B --output b.jsonl
+cat a.jsonl b.jsonl > both.jsonl
+agentcost report both.jsonl --compare A B --paired
+```
+
+With no path, the command reads `${CODEX_HOME:-~/.codex}/sessions/**/rollout-*.jsonl`. `CODEX_HOME` may be comma-separated and replaces the home directory. Archived sessions are not scanned. A directory is scanned for `rollout-*.jsonl`. A single file is read even when its name does not start with `rollout-`.
+
+`tests/fixtures/claude-code/` holds anonymized real Claude Code sessions (usage, hashed ids, shifted dates) and `totales.json`, the sums after dedupe. `tests/fixtures/codex/` is synthetic. It is marked in the file names, in `session_meta.payload.synthetic`, and in that folder's README. It is not a real Codex transcript.
+
+### Privacy
+
+The importer reads only the path you give it, or the default directory named above. It does not follow a directory symlink out of that tree. The JSONL trace has no message body.
+
 ## CLI
 
 ```bash
@@ -200,7 +237,11 @@ agentcost report traces.jsonl --compare A B --format json
 agentcost report traces.jsonl --compare A B --prices ./prices.json --set-price local-model=0.20:0.80
 agentcost report traces.otel.json --compare A B --format both --output report.md --seed 42
 agentcost report candidate.jsonl baseline.jsonl --compare candidate baseline --fail-if-worse --max-regression 5
+agentcost import claude-code session.jsonl --variant A --output a.jsonl
+agentcost import codex rollout.jsonl --variant B --output b.jsonl
 ```
+
+Flags for `agentcost report`:
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
@@ -367,9 +408,9 @@ Dependencies are version ranges in `pyproject.toml`; this library does not commi
 
 GitHub Actions runs the tests on Ubuntu, macOS, and Windows for Python 3.10, 3.11, and 3.12. The linter runs on Ubuntu with Python 3.12.
 
-## Not in v0.1
+## Not in this version
 
-Live ingestion, a dashboard, and adapters that pull traces from OpenAI, Anthropic, or LangGraph. Guardrail checks are out of scope. Export JSONL or OTel JSON yourself and point `agentcost report` at the file.
+Live ingestion, a dashboard, and adapters that pull traces from Langfuse, Phoenix, OpenAI, Anthropic, or LangGraph. Prices are not synced from another catalog. Guardrail checks are out of scope. Claude Code and Codex CLI logs on disk are imported with `agentcost import`; other agents still need a JSONL or OTel file.
 
 ## License
 
