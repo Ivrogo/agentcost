@@ -7,10 +7,14 @@ from agentcost.models import (
     EventKind,
     EventStatus,
     Interval,
+    MetricDifference,
+    Pairing,
+    PairingMode,
     Quantiles,
     Report,
     Verdict,
 )
+from agentcost.pairing import assess_pairing
 from agentcost.parse import load_traces, parse_jsonl, parse_otel, parse_traces
 from agentcost.pricing import ModelPrice, PriceTable
 from agentcost.report import compare, render_json, render_markdown
@@ -25,7 +29,10 @@ __all__ = [
     "EventKind",
     "EventStatus",
     "Interval",
+    "MetricDifference",
     "ModelPrice",
+    "Pairing",
+    "PairingMode",
     "ParseError",
     "PriceError",
     "PriceTable",
@@ -33,6 +40,7 @@ __all__ = [
     "Report",
     "Verdict",
     "__version__",
+    "assess_pairing",
     "compare",
     "load_traces",
     "parse_jsonl",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agentcost import EventKind, Verdict, compare, load_traces, parse_otel
+from agentcost import EventKind, PairingMode, Verdict, compare, load_traces, parse_otel
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE = ROOT / "examples" / "research_agent"
@@ -21,6 +21,12 @@ def test_research_agent_sample_prefers_the_smaller_model() -> None:
     assert report.arm("A").cost_per_solved_task is not None
     assert report.arm("B").cost_per_solved_task is not None
     assert report.arm("A").cost_per_solved_task < report.arm("B").cost_per_solved_task
+    assert report.pairing.mode is PairingMode.PAIRED
+    assert report.pairing.pairs == 8
+    assert report.pairing.unmatched_first == 0
+    assert report.pairing.unmatched_second == 0
+    assert report.pairing.cost is not None
+    assert report.pairing.cost.includes_zero is False
 
 
 def test_otel_fragment_drops_the_agent_wrapper() -> None:

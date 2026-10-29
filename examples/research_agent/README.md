@@ -1,6 +1,6 @@
 # Synthetic research-agent sample
 
-Eight made-up question ids (`q01`–`q08`). The file records token counts and tool steps only. It does not contain queries, pages, or model text.
+Eight made-up question ids (`q01`–`q08`). Both variants use those ids, so the default report pairs them. The file records token counts and tool steps only. It does not contain queries, pages, or model text.
 
 - `A` uses `gpt-4o-mini`. Each attempt is search, then fetch, then an answer call. `q03` errors on fetch, spends a planning call, and succeeds on a second run.
 - `B` uses `gpt-4o`. Each attempt is search, then an answer call. `q08` ends in an error and stays unsolved.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -90,6 +91,15 @@ def _report(*args: str):
     )
 
 
+def test_report_help_lists_pairing_flags() -> None:
+    result = runner.invoke(app, ["report", "--help"])
+    assert result.exit_code == 0
+    # Rich bolds each hyphen, so "--paired" is not contiguous when color is on.
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+    assert "--paired" in plain
+    assert "--unpaired" in plain
+
+
 def test_format_both_refuses_output_that_already_ends_in_json(tmp_path: Path) -> None:
     output = tmp_path / "informe.json"
     result = _report("--format", "both", "--output", str(output))
@@ -118,6 +128,119 @@ def test_format_both_keeps_unsuffixed_output_as_markdown(tmp_path: Path) -> None
     assert "**Verdict:** better" in output.read_text(encoding="utf-8")
     payload = json.loads((tmp_path / "informe.json").read_text(encoding="utf-8"))
     assert payload["verdict"] == "better"
+
+
+def test_shared_task_ids_are_paired_in_the_json_report(tmp_path: Path) -> None:
+    traces = tmp_path / "traces.jsonl"
+    _write_traces(traces)
+    result = runner.invoke(
+        app,
+        ["report", str(traces), "--compare", "A", "B", "--format", "json"],
+    )
+    assert result.exit_code == 0, result.output
+    assert result.stderr == ""
+    payload = json.loads(result.stdout)
+    assert payload["pairing"]["mode"] == "paired"
+    assert payload["pairing"]["pairs"] == 6
+    assert payload["pairing"]["metrics"]["cost"]["includes_zero"] is False
+
+
+def test_no_shared_task_id_warns_on_stdout_and_stderr(tmp_path: Path) -> None:
+    traces = tmp_path / "traces.jsonl"
+    lines = []
+    for variant, task_id in (("A", "only-a"), ("B", "only-b")):
+        lines.append(
+            json.dumps(
+                {
+                    "task_id": task_id,
+                    "variant": variant,
+                    "run_id": "r1",
+                    "kind": "llm",
+                    "tokens": {"input": 10, "output": 0},
+                    "model": "gpt-4o-mini",
+                    "status": "ok",
+                }
+            )
+        )
+    traces.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    warning = "No shared task_id between 'A' and 'B'. Using the unpaired comparison."
+    for output_format in ("md", "json"):
+        result = runner.invoke(
+            app,
+            ["report", str(traces), "--compare", "A", "B", "--format", output_format],
+        )
+        assert result.exit_code == 0, result.output
+        assert warning in result.stderr
+        assert warning in result.stdout
+        if output_format == "md":
+            assert "**Pairing:** unpaired (0 pairs)." in result.stdout
+        else:
+            payload = json.loads(result.stdout)
+            assert payload["pairing"]["mode"] == "unpaired"
+            assert payload["pairing"]["pairs"] == 0
+
+
+def test_pairing_flags_force_the_mode(tmp_path: Path) -> None:
+    traces = tmp_path / "traces.jsonl"
+    _write_traces(traces)
+    unpaired = runner.invoke(
+        app,
+        ["report", str(traces), "--compare", "A", "B", "--format", "json", "--unpaired"],
+    )
+    assert unpaired.exit_code == 0, unpaired.output
+    assert unpaired.stderr == ""
+    payload = json.loads(unpaired.stdout)
+    assert payload["pairing"]["mode"] == "unpaired"
+    assert payload["pairing"]["pairs"] == 0
+    assert payload["pairing"]["shared"] == 6
+    assert payload["pairing"]["warning"] is None
+
+    both = runner.invoke(
+        app,
+        ["report", str(traces), "--compare", "A", "B", "--paired", "--unpaired"],
+    )
+    assert both.exit_code == 1
+    assert "--paired" in both.stderr
+    assert both.stdout == ""
+
+    disjoint = tmp_path / "disjoint.jsonl"
+    disjoint.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "task_id": "a1",
+                        "variant": "A",
+                        "run_id": "r1",
+                        "kind": "llm",
+                        "tokens": {"input": 10, "output": 0},
+                        "model": "gpt-4o-mini",
+                        "status": "ok",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "task_id": "b1",
+                        "variant": "B",
+                        "run_id": "r1",
+                        "kind": "llm",
+                        "tokens": {"input": 10, "output": 0},
+                        "model": "gpt-4o-mini",
+                        "status": "ok",
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    forced = runner.invoke(
+        app,
+        ["report", str(disjoint), "--compare", "A", "B", "--paired"],
+    )
+    assert forced.exit_code == 1
+    assert "shared task_id" in forced.stderr
+    assert forced.stdout == ""
 
 
 def test_format_json_writes_only_the_json_file(tmp_path: Path) -> None:

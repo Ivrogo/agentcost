@@ -5,7 +5,7 @@ La ayuda muestra el comando `report` y las opciones con las que se pide un infor
 ## Sub-features
 
 - `help-root` muestra el comando `report` en la ayuda general.
-- `help-report` muestra `--compare` y `--format` en la ayuda del comando.
+- `help-report` muestra `--compare`, `--format`, `--paired` y `--unpaired` en la ayuda del comando.
 
 ## How to get to it (user POV)
 
@@ -20,7 +20,7 @@ Preconditions:
 - El directorio de trabajo es `$ROOT/work`.
 
 - **Ayuda general.** Pide la ayuda del programa. Ejecuta `"$REPO/.cursor/skills/verify-agentcost/scripts/drive.sh" "$EVIDENCE" help-root -- "$VENV/bin/agentcost" --help`. `$EVIDENCE/help-root.exit` es `0` y stdout contiene `report` y `Build an A/B cost report from a trace file.`
-- **Ayuda del informe.** Pide la ayuda del comando. Ejecuta `"$REPO/.cursor/skills/verify-agentcost/scripts/drive.sh" "$EVIDENCE" help-report -- "$VENV/bin/agentcost" report --help`. `$EVIDENCE/help-report.exit` es `0` y stdout contiene `--compare` y `--format`.
+- **Ayuda del informe.** Pide la ayuda del comando. Ejecuta `"$REPO/.cursor/skills/verify-agentcost/scripts/drive.sh" "$EVIDENCE" help-report -- "$VENV/bin/agentcost" report --help`. `$EVIDENCE/help-report.exit` es `0` y stdout contiene `--compare`, `--format`, `--paired` y `--unpaired`.
 - **Prueba.** Conserva los dos transcripts. La ayuda no escribe ficheros.
 
 ## Gotchas

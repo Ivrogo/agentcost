@@ -24,7 +24,7 @@ One JSON object per line. Blank lines are ignored.
 
 | Field | Required | Notes |
 | --- | --- | --- |
-| `task_id` | yes | Task identity. Compared separately per variant. |
+| `task_id` | yes | Task identity. Shared ids are paired across variants unless you pass `--unpaired`. |
 | `variant` | yes | Arm name used by `--compare`. Case-sensitive. |
 | `run_id` | yes | One attempt. Several events can share it. |
 | `kind` | no | `llm` or `tool`. Defaults to `llm` when `model` is set, otherwise `tool`. |
@@ -152,7 +152,7 @@ Bundled cache rates, USD per 1,000,000 tokens, checked against the vendor page o
 agentcost report examples/cache_usage/traces.jsonl --compare openai anthropic
 ```
 
-One task per variant is not enough for a verdict. The cost rows are `$0.005615` (OpenAI, cache savings `$0.0024`) and `$0.015384` (Anthropic, cache savings `$0.004449`). The Anthropic write row is `$0.001155 (5 min $0.000555, 1 h $0.0006)`. Markdown and JSON both carry the breakdown: input, output, cache read, cache write, and cache savings. JSON also splits the write into `cache_write_5m` and `cache_write_1h`.
+One task per variant is not enough for a verdict. The task ids differ, so the comparison is unpaired and the report says so. The cost rows are `$0.005615` (OpenAI, cache savings `$0.0024`) and `$0.015384` (Anthropic, cache savings `$0.004449`). The Anthropic write row is `$0.001155 (5 min $0.000555, 1 h $0.0006)`. Markdown and JSON both carry the breakdown: input, output, cache read, cache write, and cache savings. JSON also splits the write into `cache_write_5m` and `cache_write_1h`.
 
 ## Metrics and verdict
 
@@ -165,16 +165,32 @@ Reported for each arm:
 - cost per solved task: total cost of the arm, failed runs included, divided by the number of solved tasks
 - failed-run count, cost, and tokens
 
-The verdict compares the **first** variant in `--compare A B` with the second, on cost per solved task. Lower is better.
+The verdict compares the **first** variant in `--compare A B` with the second. Lower cost is better.
 
-| Result | When |
-| --- | --- |
-| `better` | At least 5 tasks in each arm, both arms solved at least one task, and the bootstrap 95% intervals are disjoint with the first arm cheaper. |
-| `worse` | Same, with the first arm more expensive. |
-| `no_difference` | At least 5 tasks in each arm, and the two cost-per-solved-task point estimates are equal. |
-| `inconclusive` | Fewer than 5 tasks in either arm, an arm with no solved task, or overlapping bootstrap intervals. |
+By default the report is **paired** when the two variants share at least one `task_id`. The difference on a task is the first variant minus the second (cost, tokens, and steps). Each of those is the sum across every run of that task, including failed runs. The report gives the mean of those differences and a 95% bootstrap interval, plus the relative change and its interval. With no shared `task_id`, the report stays unpaired and says so.
 
-The bootstrap resamples tasks with replacement (1,000 resamples by default, seed 42, percentile interval). A resample with no solved task is dropped. If too many resamples are empty, the verdict is `inconclusive`. Arms are unpaired: shared `task_id` values are not matched across variants. Task order is sorted by `task_id` before resampling so the interval does not depend on file order. Touching interval endpoints count as overlap.
+| Result | Paired | Unpaired |
+| --- | --- | --- |
+| `better` | At least 5 pairs, and the 95% interval of the mean cost difference is entirely below 0. | At least 5 tasks in each arm, both arms solved at least one task, and the bootstrap 95% intervals of cost per solved task are disjoint with the first arm cheaper. |
+| `worse` | Same, with the cost interval entirely above 0. | Same, with the first arm more expensive. |
+| `no_difference` | At least 5 pairs, and the mean cost difference is 0. | At least 5 tasks in each arm, and the two cost-per-solved-task point estimates are equal. |
+| `inconclusive` | Fewer than 5 pairs, or the cost interval contains 0. | Fewer than 5 tasks in either arm, an arm with no solved task, or overlapping bootstrap intervals. |
+
+The bootstrap resamples with replacement (1,000 resamples by default, seed 42, `--bootstrap` and `--seed`). In the paired test each draw resamples the paired differences. In the unpaired test each arm is resampled on its own; a resample with no solved task is dropped, and the verdict is `inconclusive` if too many resamples are empty. Task order is sorted by `task_id` before resampling, so the interval does not depend on file order. An interval that touches 0 counts as including 0. Touching endpoints of two arm intervals count as overlap.
+
+### How to read the paired interval
+
+The cost row is the test behind the verdict. A negative mean means the first variant is cheaper on the paired tasks. The 95% interval is a percentile interval of that mean: if it lies entirely below 0, the paired tasks separate the variants in that direction. If it contains 0, they do not, and the verdict is `inconclusive` even when the mean itself is not 0.
+
+The relative change is `100 * mean(first - second) / mean(second)`, in percent. On the sample below, about -94.5% means the first variant's mean task cost is about 94.5% lower than the second. The relative interval is the same bootstrap applied to that ratio. It is omitted when the second variant's mean is 0.
+
+Tokens and steps use the same differences. They do not change the verdict. The sample's token interval includes 0; the step interval does not (the first variant takes more steps).
+
+Partial overlap uses only the shared ids. The report names how many tasks were left out of each variant. Those tasks are not in the arm table either. `--paired` requires at least one shared id and exits 1 otherwise. `--unpaired` ignores shared ids, keeps every task, and does not warn. Passing both flags is an error.
+
+If `auto` finds no shared id, the report and stderr both say `No shared task_id between 'A' and 'B'. Using the unpaired comparison.`
+
+JSON `intervals` is still each arm's cost-per-solved-task interval, on the tasks that entered the report. The paired interval is `pairing.metrics.cost`. Those two are not the same number: cost per solved task divides by solved tasks, and the paired mean divides by paired tasks. They can disagree when the success counts differ. `pairing.cost` (and `assess_pairing`) is the result a later gate should read. Traces have no latency field, so latency is not compared.
 
 ## CLI
 
@@ -193,7 +209,9 @@ agentcost report traces.otel.json --compare A B --format both --output report.md
 | `--set-price` | none | `MODEL=INPUT:OUTPUT` in USD per 1,000,000 tokens. Repeatable. Wins over the file for input and output. Does not set cache rates. |
 | `--output` | stdout | Write the report. With `--format both`, Markdown goes to this path and JSON to the same path with a `.json` suffix. |
 | `--seed` | `42` | Bootstrap seed. |
-| `--bootstrap` | `1000` | Resample count. |
+| `--bootstrap` | `1000` | Resample count. `10000` is a reasonable setting when you want a finer percentile. |
+| `--paired` | off | Force pairing. Exits 1 when the variants share no `task_id`. |
+| `--unpaired` | off | Force the unpaired comparison, even when task ids match. |
 | `--allow-unpriced` | off | Unknown models cost zero and are named in the report. |
 
 `--format both` refuses an `--output` that already ends in `.json`, because the Markdown and JSON reports would be the same file. The command prints the path to stderr, exits 1, and creates nothing:
@@ -222,7 +240,7 @@ print(render_markdown(report))
 print(render_json(report))
 ```
 
-`compare(..., on_missing="zero")` matches `--allow-unpriced`. `report.verdict.value` is `better`, `worse`, `no_difference`, or `inconclusive`.
+`compare(..., on_missing="zero")` matches `--allow-unpriced`. `compare(..., pairing="paired")` and `pairing="unpaired"` match the flags; the default is `"auto"`. `report.verdict.value` is `better`, `worse`, `no_difference`, or `inconclusive`. `report.pairing` is the typed paired result: `mode`, `pairs`, `unmatched_first`, `unmatched_second`, `warning`, and `cost` / `tokens` / `steps`. Each metric's `includes_zero` is true when the 95% interval contains 0. `assess_pairing` returns that same object from per-task observations.
 
 ## Example
 
@@ -237,7 +255,19 @@ agentcost report examples/research_agent/traces.jsonl --compare A B
 
 **Verdict:** better
 
-A is cheaper per solved task than B; bootstrap 95% intervals do not overlap.
+A costs less per paired task than B; the bootstrap 95% interval of the mean difference does not include 0.
+
+**Pairing:** paired (8 pairs).
+
+Each difference is the first variant minus the second on that task (failed runs stay in the task total). Negative cost means the first variant is cheaper.
+
+| Metric | Mean difference (A - B) | 95% CI | Includes 0 | Relative change |
+| --- | ---: | ---: | :---: | ---: |
+| Cost | -$0.008601625 | [-$0.008896, -$0.0083295375] | no | -94.523351648352% [-94.911764705882%, -93.96694214876%] |
+| Tokens | -10 | [-176.875, 239.375] | yes | -0.445434298441% [-8.035207268597%, 10.692350642099%] |
+| Steps | 1.375 | [1, 2.125] | no | 68.75% [50%, 106.25%] |
+
+The cost interval does not include 0.
 
 Lower cost per solved task is better. The denominator is solved tasks. Failed runs stay in the numerator and in the per-task distributions, and are also listed on their own rows.
 
@@ -263,7 +293,7 @@ Lower cost per solved task is better. The denominator is solved tasks. Failed ru
 Price table `2026-10-29` (USD per 1,000,000 tokens). Bootstrap 95% intervals, 1000 resamples, seed 42.
 ```
 
-`--format json` emits the same figures under `verdict`, `arms.<variant>.per_task`, `arms.<variant>.cost_per_solved_task`, and `intervals`. Schema version is `0.1`. Cache adds `cost_breakdown`, `cache_savings`, and `cache_priced_as_input` on each arm.
+`--format json` emits the same figures under `verdict`, `arms.<variant>.per_task`, `arms.<variant>.cost_per_solved_task`, `intervals`, and `pairing`. Schema version is `0.1`. `pairing.metrics.cost` has `mean_difference`, `interval`, `includes_zero`, `relative_change_percent`, and `relative_interval`. Cache adds `cost_breakdown`, `cache_savings`, and `cache_priced_as_input` on each arm.
 
 ## Development
 

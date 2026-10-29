@@ -9,7 +9,8 @@ from typing import Annotated
 
 import typer
 
-from agentcost.errors import AgentCostError, PriceError
+from agentcost.errors import AgentCostError, CompareError, PriceError
+from agentcost.pairing import RequestedPairing
 from agentcost.parse import load_traces
 from agentcost.pricing import ModelPrice, PriceTable
 from agentcost.report import compare, render_json, render_markdown
@@ -80,6 +81,17 @@ def report(
         bool,
         typer.Option("--allow-unpriced", help="Price unknown models as zero and list them."),
     ] = False,
+    paired: Annotated[
+        bool,
+        typer.Option(
+            "--paired",
+            help="Pair tasks that share a task_id. Default pairs when any task_id is shared.",
+        ),
+    ] = False,
+    unpaired: Annotated[
+        bool,
+        typer.Option("--unpaired", help="Compare the arms without matching task_id."),
+    ] = False,
 ) -> None:
     """Build an A/B cost report from a trace file."""
     try:
@@ -93,6 +105,8 @@ def report(
             seed=seed,
             bootstrap=bootstrap,
             allow_unpriced=allow_unpriced,
+            paired=paired,
+            unpaired=unpaired,
         )
     except AgentCostError as exc:
         typer.echo(str(exc), err=True)
@@ -110,9 +124,12 @@ def _emit_report(
     seed: int,
     bootstrap: int,
     allow_unpriced: bool,
+    paired: bool,
+    unpaired: bool,
 ) -> None:
     if output_format not in {"md", "json", "both"}:
         raise PriceError("--format must be md, json, or both")
+    pairing = _pairing_mode(paired, unpaired)
     table = PriceTable.bundled()
     if prices is not None:
         table = table.merge(PriceTable.load(prices))
@@ -128,7 +145,10 @@ def _emit_report(
         seed=seed,
         resamples=bootstrap,
         on_missing="zero" if allow_unpriced else "error",
+        pairing=pairing,
     )
+    if built.pairing.warning:
+        typer.echo(built.pairing.warning, err=True)
     markdown = render_markdown(built)
     payload = render_json(built)
     if output is None:
@@ -152,6 +172,16 @@ def _emit_report(
     output.write_text(markdown, encoding="utf-8", newline="\n")
     if json_path is not None:
         json_path.write_text(payload, encoding="utf-8", newline="\n")
+
+
+def _pairing_mode(paired: bool, unpaired: bool) -> RequestedPairing:
+    if paired and unpaired:
+        raise CompareError("Pass only one of --paired and --unpaired.")
+    if paired:
+        return "paired"
+    if unpaired:
+        return "unpaired"
+    return "auto"
 
 
 def _parse_set_price(raw: str) -> tuple[str, ModelPrice]:

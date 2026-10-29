@@ -9,4 +9,4 @@ These two lines are not a live call. Each `usage` object is copied from a publis
 agentcost report examples/cache_usage/traces.jsonl --compare openai anthropic
 ```
 
-The sample has one task per variant, so the verdict is inconclusive. The cost rows are the point of the file.
+The sample has one task per variant and the task ids differ, so the comparison is unpaired and the verdict is inconclusive. The report says there is no shared `task_id`. The cost rows are the point of the file.

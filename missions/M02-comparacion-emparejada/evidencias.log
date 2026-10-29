@@ -1,0 +1,124 @@
+# launch.txt
+
+```text
+repo=/workspace
+root=/tmp/agentcost-verify-20261029100630-3300
+py310=Python 3.10.22
+py311=Python 3.11.18
+py312=Python 3.12.16
+head=28ea2d977bf57c29881d22907769b9fcb36ebf0c
+```
+
+# doctor.txt
+
+Doctor editable y clean en 3.10, 3.11 y 3.12. version=0.1.0. Editable: módulo bajo `/workspace/src/agentcost/`. Clean: módulo bajo el `site-packages` del venv. `agentcost --help` contiene `report`.
+
+# pytest-3.10.txt
+
+```text
+41 passed in 0.49s
+```
+
+exit 0. Comando: `/tmp/agentcost-verify-20261029100630-3300/venv-3.10/bin/pytest -q` desde `/workspace`.
+
+# pytest-3.11.txt
+
+```text
+41 passed in 0.44s
+```
+
+exit 0. Mismo comando con el venv 3.11.
+
+# pytest-3.12.txt
+
+```text
+41 passed in 0.33s
+```
+
+exit 0. Mismo comando con el venv 3.12.
+
+# ruff-check.txt
+
+```text
+All checks passed!
+```
+
+exit 0. Comando: `ruff check .` con el venv de desarrollo 3.12, cwd `/workspace`.
+
+# ruff-format.txt
+
+```text
+39 files already formatted
+```
+
+exit 0. Comando: `ruff format --check .` en las mismas condiciones. No aparece `No Python files found`.
+
+# report-json.txt
+
+Comando, cwd `/tmp/agentcost-verify-20261029100630-3300/work`, venv limpio, las tres versiones:
+
+```text
+agentcost report /workspace/examples/research_agent/traces.jsonl --compare A B --format json
+```
+
+exit 0. stderr vacío. El stdout es JSON. Comprobado con el Python del venv limpio 3.12, fuera del proceso de la CLI:
+
+- schema_version 0.1, verdict better, compare A y B
+- cost_per_solved_task A 0.000498375, B 0.0104
+- tasks A 8 (8 resueltas), B 8 (7 resueltas)
+- pairing.mode paired, pairs 8, unmatched A 0 y B 0, warning null
+- cost mean_difference -0.008601625
+- cost interval low -0.008896, high -0.0083295375, includes_zero false
+- relative_change_percent -94.523351648352, relative interval [-94.911764705882, -93.96694214876], relative_includes_zero false
+
+La misma comprobación de exit 0 y stderr vacío pasó en los venv limpios 3.10 y 3.11.
+
+# report-markdown.txt
+
+Mismo binario limpio 3.12, sin `--format`, cwd de trabajo fuera del árbol. exit 0. stderr vacío. stdout:
+
+```text
+# agentcost report
+
+**Verdict:** better
+
+A costs less per paired task than B; the bootstrap 95% interval of the mean difference does not include 0.
+
+**Pairing:** paired (8 pairs).
+
+Each difference is the first variant minus the second on that task (failed runs stay in the task total). Negative cost means the first variant is cheaper.
+
+| Metric | Mean difference (A - B) | 95% CI | Includes 0 | Relative change |
+| --- | ---: | ---: | :---: | ---: |
+| Cost | -$0.008601625 | [-$0.008896, -$0.0083295375] | no | -94.523351648352% [-94.911764705882%, -93.96694214876%] |
+| Tokens | -10 | [-176.875, 239.375] | yes | -0.445434298441% [-8.035207268597%, 10.692350642099%] |
+| Steps | 1.375 | [1, 2.125] | no | 68.75% [50%, 106.25%] |
+
+The cost interval does not include 0.
+
+Lower cost per solved task is better. The denominator is solved tasks. Failed runs stay in the numerator and in the per-task distributions, and are also listed on their own rows.
+
+| Metric | A | B |
+| --- | ---: | ---: |
+| Tasks | 8 | 8 |
+| Successful tasks | 8 | 7 |
+| Success rate | 100% | 87.5% |
+| Cost per solved task | $0.000498375 | $0.0104 |
+| Cost per task, median (p25–p75) | $0.0004935 ($0.0004515–$0.00053025) | $0.0091 ($0.00875–$0.00945) |
+| Tokens per task, median (p25–p75) | 2202.5 (2012.5–2368.75) | 2245 (2157.5–2332.5) |
+| Steps per task, median (p25–p75) | 3 (3–3) | 2 (2–2) |
+| Runs | 9 | 8 |
+| Failed runs | 1 | 1 |
+| Failed-run cost | $0.000207 | $0.0098 |
+| Failed-run tokens | 1020 | 2420 |
+
+Price table `2026-10-01` (USD per 1,000,000 tokens). Bootstrap 95% intervals, 1000 resamples, seed 42.
+```
+
+# help-report.txt
+
+`agentcost report --help` con el venv limpio 3.12. exit 0. stdout contiene `--compare`, `--format`, `--paired` y `--unpaired`.
+
+# scope.txt
+
+Esta máquina es Linux. macOS, Windows y pipx los ejecuta `.github/workflows/ci.yml`. No se lanzaron aquí.

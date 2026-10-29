@@ -6,7 +6,7 @@ import json
 import random
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 
 from agentcost.errors import CompareError, PriceError
@@ -15,11 +15,15 @@ from agentcost.models import (
     Event,
     EventStatus,
     Interval,
+    MetricDifference,
+    PairingMode,
     Quantiles,
     Report,
     Verdict,
 )
+from agentcost.pairing import RequestedPairing, TaskObservation, assess_pairing
 from agentcost.pricing import PriceTable
+from agentcost.stats import quantile
 
 SCHEMA_VERSION = "0.1"
 METRIC = "cost_per_solved_task"
@@ -40,6 +44,7 @@ def compare(
     resamples: int = DEFAULT_RESAMPLES,
     level: float = DEFAULT_LEVEL,
     on_missing: Literal["error", "zero"] = "error",
+    pairing: RequestedPairing = "auto",
 ) -> Report:
     """Compare two variants on cost per solved task.
 
@@ -47,10 +52,15 @@ def compare(
     any of its events has status ``error``. Failed runs are included in cost,
     tokens, and steps, and are also reported on their own.
 
+    ``pairing="auto"`` matches variants on ``task_id`` when they share at
+    least one. The paired verdict uses the bootstrap interval of the mean
+    per-task cost difference (first minus second). ``pairing="unpaired"``
+    keeps the per-arm intervals. With fewer than five tasks (or five pairs),
+    the verdict is ``inconclusive``. Equal point estimates are
+    ``no_difference``.
+
     The verdict is about the first variant relative to the second. Lower cost
-    per solved task is better. With fewer than five tasks in either arm, or
-    when the bootstrap percentile intervals overlap, the verdict is
-    ``inconclusive``. Equal point estimates are ``no_difference``.
+    is better.
     """
     if len(variants) != 2:
         raise CompareError("compare expects exactly two variants")
@@ -67,15 +77,50 @@ def compare(
     selected = [event for event in events if event.variant in {left, right}]
     if on_missing == "error":
         _require_prices(selected, table)
+    left_tasks = _tasks(selected, left, table, on_missing)
+    right_tasks = _tasks(selected, right, table, on_missing)
+    if not left_tasks:
+        raise CompareError(f"variant {left!r} has no events in the trace")
+    if not right_tasks:
+        raise CompareError(f"variant {right!r} has no events in the trace")
+    assessed = assess_pairing(
+        [_observation(task) for task in left_tasks],
+        [_observation(task) for task in right_tasks],
+        first_name=left,
+        second_name=right,
+        requested=pairing,
+        seed=seed,
+        resamples=resamples,
+        level=level,
+    )
+    if assessed.mode is PairingMode.PAIRED:
+        shared_ids = {task.task_id for task in left_tasks} & {task.task_id for task in right_tasks}
+        left_tasks = [task for task in left_tasks if task.task_id in shared_ids]
+        right_tasks = [task for task in right_tasks if task.task_id in shared_ids]
     arms = (
-        _arm_report(selected, left, table, on_missing),
-        _arm_report(selected, right, table, on_missing),
+        _arm_from_tasks(left, left_tasks),
+        _arm_from_tasks(right, right_tasks),
     )
     raw_intervals = {
-        arms[0].variant: _interval_for(selected, left, table, on_missing, seed, resamples, level),
-        arms[1].variant: _interval_for(selected, right, table, on_missing, seed, resamples, level),
+        left: _bootstrap(
+            [task.cost for task in left_tasks],
+            [task.success for task in left_tasks],
+            seed=seed,
+            resamples=resamples,
+            level=level,
+        ),
+        right: _bootstrap(
+            [task.cost for task in right_tasks],
+            [task.success for task in right_tasks],
+            seed=seed,
+            resamples=resamples,
+            level=level,
+        ),
     }
-    verdict, reason = _verdict(arms[0], arms[1], raw_intervals, level)
+    if assessed.mode is PairingMode.PAIRED:
+        verdict, reason = _paired_verdict(arms[0], arms[1], assessed.cost, assessed.pairs, level)
+    else:
+        verdict, reason = _verdict(arms[0], arms[1], raw_intervals, level)
     intervals = {key: value for key, value in raw_intervals.items() if value is not None}
     return Report(
         schema_version=SCHEMA_VERSION,
@@ -90,6 +135,7 @@ def compare(
         bootstrap_resamples=resamples,
         bootstrap_level=level,
         intervals=intervals,
+        pairing=assessed,
     )
 
 
@@ -138,13 +184,19 @@ def render_markdown(report: Report) -> str:
         "",
         report.verdict_reason,
         "",
-        "Lower cost per solved task is better. The denominator is solved tasks. "
-        "Failed runs stay in the numerator and in the per-task distributions, and "
-        "are also listed on their own rows.",
-        "",
-        f"| Metric | {headers[0]} | {headers[1]} |",
-        "| --- | ---: | ---: |",
     ]
+    lines.extend(_pairing_lines(report))
+    lines.extend(
+        [
+            "",
+            "Lower cost per solved task is better. The denominator is solved tasks. "
+            "Failed runs stay in the numerator and in the per-task distributions, and "
+            "are also listed on their own rows.",
+            "",
+            f"| Metric | {headers[0]} | {headers[1]} |",
+            "| --- | ---: | ---: |",
+        ]
+    )
     lines.extend(f"| {name} | {a} | {b} |" for name, a, b in rows)
     lines.extend(
         [
@@ -235,13 +287,16 @@ def _require_prices(events: Sequence[Event], prices: PriceTable) -> None:
         )
 
 
-def _arm_report(
-    events: Sequence[Event],
-    variant: str,
-    prices: PriceTable,
-    on_missing: Literal["error", "zero"],
-) -> ArmReport:
-    tasks = _tasks(events, variant, prices, on_missing)
+def _observation(task: _Task) -> TaskObservation:
+    return TaskObservation(
+        task_id=task.task_id,
+        cost=task.cost,
+        tokens=task.tokens,
+        steps=task.steps,
+    )
+
+
+def _arm_from_tasks(variant: str, tasks: Sequence[_Task]) -> ArmReport:
     if not tasks:
         raise CompareError(f"variant {variant!r} has no events in the trace")
     successful = [task for task in tasks if task.success]
@@ -451,27 +506,6 @@ def _cache_portion(
     return _portion(tokens, specific), None
 
 
-def _interval_for(
-    events: Sequence[Event],
-    variant: str,
-    prices: PriceTable,
-    on_missing: Literal["error", "zero"],
-    seed: int,
-    resamples: int,
-    level: float,
-) -> Interval | None:
-    tasks = _tasks(events, variant, prices, on_missing)
-    if not tasks:
-        return None
-    return _bootstrap(
-        [task.cost for task in tasks],
-        [task.success for task in tasks],
-        seed=seed,
-        resamples=resamples,
-        level=level,
-    )
-
-
 def _bootstrap(
     costs: Sequence[Decimal],
     solved: Sequence[bool],
@@ -496,28 +530,55 @@ def _bootstrap(
     if len(samples) < max(100, resamples // 2):
         return None
     alpha = (1 - level) / 2
-    return Interval(low=_quantile(samples, alpha), high=_quantile(samples, 1 - alpha))
+    return Interval(low=quantile(samples, alpha), high=quantile(samples, 1 - alpha))
 
 
 def _quantiles(values: Sequence[Decimal]) -> Quantiles:
     return Quantiles(
-        p25=_quantile(values, 0.25),
-        median=_quantile(values, 0.5),
-        p75=_quantile(values, 0.75),
+        p25=quantile(values, 0.25),
+        median=quantile(values, 0.5),
+        p75=quantile(values, 0.75),
     )
 
 
-def _quantile(values: Sequence[Decimal], probability: float) -> Decimal:
-    ordered = sorted(values)
-    if len(ordered) == 1:
-        return ordered[0]
-    rank = Decimal(len(ordered) - 1) * Decimal(str(probability))
-    low = int(rank.to_integral_value(rounding=ROUND_FLOOR))
-    high = int(rank.to_integral_value(rounding=ROUND_CEILING))
-    if low == high:
-        return ordered[low]
-    weight = rank - Decimal(low)
-    return ordered[low] * (Decimal(1) - weight) + ordered[high] * weight
+def _paired_verdict(
+    left: ArmReport,
+    right: ArmReport,
+    cost: MetricDifference | None,
+    pairs: int,
+    level: float,
+) -> tuple[Verdict, str]:
+    if cost is None:
+        raise CompareError("paired comparison has no cost difference")
+    if pairs < MIN_TASKS:
+        return (
+            Verdict.INCONCLUSIVE,
+            f"Fewer than 5 paired tasks ({pairs}).",
+        )
+    if _same(cost.mean_difference, Decimal(0)):
+        return (
+            Verdict.NO_DIFFERENCE,
+            f"Mean paired cost difference ({left.variant} - {right.variant}) is 0.",
+        )
+    percent = f"{level:.0%}"
+    span = f"[{_fmt_num(cost.interval.low)}, {_fmt_num(cost.interval.high)}]"
+    if cost.includes_zero:
+        return (
+            Verdict.INCONCLUSIVE,
+            f"Bootstrap {percent} interval of the mean cost difference "
+            f"({left.variant} - {right.variant}) includes 0 ({span}).",
+        )
+    if cost.interval.high < 0:
+        return (
+            Verdict.BETTER,
+            f"{left.variant} costs less per paired task than {right.variant}; "
+            f"the bootstrap {percent} interval of the mean difference does not include 0.",
+        )
+    return (
+        Verdict.WORSE,
+        f"{left.variant} costs more per paired task than {right.variant}; "
+        f"the bootstrap {percent} interval of the mean difference does not include 0.",
+    )
 
 
 def _verdict(
@@ -597,7 +658,109 @@ def _report_dict(report: Report) -> dict[str, object]:
             name: {"low": _json_number(interval.low), "high": _json_number(interval.high)}
             for name, interval in report.intervals.items()
         },
+        "pairing": _pairing_dict(report),
     }
+
+
+def _pairing_dict(report: Report) -> dict[str, object]:
+    pairing = report.pairing
+    first, second = report.variants
+    metrics: dict[str, object] | None = None
+    if pairing.mode is PairingMode.PAIRED:
+        metrics = {}
+        for name, metric in (
+            ("cost", pairing.cost),
+            ("tokens", pairing.tokens),
+            ("steps", pairing.steps),
+        ):
+            if metric is not None:
+                metrics[name] = _metric_dict(metric)
+    return {
+        "mode": pairing.mode.value,
+        "requested": pairing.requested,
+        "pairs": pairing.pairs,
+        "shared": pairing.shared,
+        "unmatched": {first: pairing.unmatched_first, second: pairing.unmatched_second},
+        "warning": pairing.warning,
+        "metrics": metrics,
+    }
+
+
+def _metric_dict(metric: MetricDifference) -> dict[str, object]:
+    relative_interval = None
+    if metric.relative_interval is not None:
+        relative_interval = {
+            "low": _json_number(metric.relative_interval.low),
+            "high": _json_number(metric.relative_interval.high),
+        }
+    return {
+        "mean_difference": _json_number(metric.mean_difference),
+        "interval": {
+            "low": _json_number(metric.interval.low),
+            "high": _json_number(metric.interval.high),
+        },
+        "includes_zero": metric.includes_zero,
+        "relative_change_percent": None
+        if metric.relative_percent is None
+        else _json_number(metric.relative_percent),
+        "relative_interval": relative_interval,
+        "relative_includes_zero": metric.relative_includes_zero,
+    }
+
+
+def _pairing_lines(report: Report) -> list[str]:
+    pairing = report.pairing
+    first, second = report.variants
+    if pairing.mode is PairingMode.UNPAIRED:
+        if pairing.requested == "unpaired" and pairing.shared:
+            noun = "task id" if pairing.shared == 1 else "task ids"
+            headline = (
+                f"**Pairing:** unpaired (0 pairs; {pairing.shared} shared {noun} not matched)."
+            )
+        else:
+            headline = "**Pairing:** unpaired (0 pairs)."
+        lines = [headline]
+        if pairing.warning:
+            lines.extend(["", pairing.warning])
+        return lines
+    headline = f"**Pairing:** paired ({pairing.pairs} pairs)."
+    if pairing.unmatched_first or pairing.unmatched_second:
+        headline += (
+            f" Left out: {first} {pairing.unmatched_first}, {second} {pairing.unmatched_second}."
+        )
+    percent = f"{report.bootstrap_level:.0%}"
+    difference = f"Mean difference ({first} - {second})"
+    lines = [
+        headline,
+        "",
+        "Each difference is the first variant minus the second on that task "
+        "(failed runs stay in the task total). Negative cost means the first variant is cheaper.",
+        "",
+        f"| Metric | {difference} | {percent} CI | Includes 0 | Relative change |",
+        "| --- | ---: | ---: | :---: | ---: |",
+    ]
+    for name, metric, money in (
+        ("Cost", pairing.cost, True),
+        ("Tokens", pairing.tokens, False),
+        ("Steps", pairing.steps, False),
+    ):
+        if metric is None:
+            continue
+        included = "yes" if metric.includes_zero else "no"
+        cells = (
+            name,
+            _fmt_diff(metric.mean_difference, money=money),
+            _fmt_interval(metric.interval, money=money),
+            included,
+            _fmt_relative(metric),
+        )
+        lines.append("| " + " | ".join(cells) + " |")
+    if pairing.cost is not None:
+        if pairing.cost.includes_zero:
+            lines.extend(["", "The cost interval includes 0."])
+        else:
+            lines.extend(["", "The cost interval does not include 0."])
+    return lines
 
 
 def _arm_dict(arm: ArmReport) -> dict[str, object]:
@@ -662,6 +825,26 @@ def _fmt_money(value: Decimal | None) -> str:
     if value < 0:
         return f"-${_fmt_num(-value)}"
     return f"${_fmt_num(value)}"
+
+
+def _fmt_diff(value: Decimal, *, money: bool) -> str:
+    if not money:
+        return _fmt_num(value)
+    if value < 0:
+        return f"-${_fmt_num(-value)}"
+    return f"${_fmt_num(value)}"
+
+
+def _fmt_interval(interval: Interval, *, money: bool) -> str:
+    return f"[{_fmt_diff(interval.low, money=money)}, {_fmt_diff(interval.high, money=money)}]"
+
+
+def _fmt_relative(metric: MetricDifference) -> str:
+    if metric.relative_percent is None or metric.relative_interval is None:
+        return "n/a"
+    low = _fmt_num(metric.relative_interval.low)
+    high = _fmt_num(metric.relative_interval.high)
+    return f"{_fmt_num(metric.relative_percent)}% [{low}%, {high}%]"
 
 
 def _fmt_cache_write(arm: ArmReport) -> str:
