@@ -32,3 +32,9 @@ Script en el entorno, evidencia bajo `/tmp/agentcost-verify-20261029103543-3751`
 macOS, Windows y pipx no se ejecutan en esta máquina. Los cubre `.github/workflows/ci.yml`.
 
 `verification.json` apunta al commit de código `133cd76267861877e785e096785c00c330dbacf1`. Este registro no cambia la CLI.
+
+## Merge de origin/main
+
+`805f8da` (PR #9, importador de Claude Code y Codex) llegó a `main` durante el trabajo. `git merge origin/main` creó el merge commit `20e7e08` (padres `f1f9564` y `805f8da`), sin rebase ni force-push. Conflictos resueltos en `cli.py`, `README.md`, `CHANGELOG.md` y el índice de features: se conservan la puerta y el importador.
+
+Después del merge, dos tests nuevos cubren sesiones importadas: las fixtures de Codex no comparten `task_id` y `--fail-if-worse` sale 0 con el aviso; el mismo id de sesión en las dos variantes deja un par, `--fail-if-worse` no falla con menos de 5 pares, y `--max-regression 5` sale 3. Pytest otra vez en los venv editables 3.10, 3.11 y 3.12: 101 passed. `ruff check .` y `ruff format --check .` en verde.

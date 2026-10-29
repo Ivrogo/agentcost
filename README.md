@@ -286,7 +286,18 @@ agentcost report candidate.jsonl baseline.jsonl \
   --github-step-summary
 ```
 
-Each file is a JSONL or OTel export. `candidate` and `baseline` are the `variant` values inside those files, not the file names. Without `--fail-if-worse` and without `--max-regression`, a `worse` verdict still exits 0.
+Each file is a JSONL or OTel export, including a trace written by `agentcost import`. `candidate` and `baseline` are the `variant` values inside those files, not the file names. Without `--fail-if-worse` and without `--max-regression`, a `worse` verdict still exits 0.
+
+```bash
+agentcost import codex candidate-rollout.jsonl --variant candidate --output candidate.jsonl
+agentcost import codex baseline-rollout.jsonl --variant baseline --output baseline.jsonl
+agentcost report candidate.jsonl baseline.jsonl \
+  --compare candidate baseline \
+  --fail-if-worse \
+  --markdown-summary agentcost-summary.md
+```
+
+Two different session ids are not paired. `--fail-if-worse` then uses the unpaired verdict, and `--max-regression` exits 1 because there is no relative interval. Import the same session id under both variant names to get one pair. With fewer than five pairs, `--fail-if-worse` does not fail; `--max-regression` still compares the lower bound of that pair's relative interval.
 
 ### Exit codes
 

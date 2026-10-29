@@ -123,7 +123,8 @@ def render_ci_summary(report: Report, decision: GateDecision) -> str:
     difference = _metric_difference(report, decision.metric)
     money = decision.metric == "cost"
     if report.pairing.mode is PairingMode.PAIRED:
-        mode = f"paired ({report.pairing.pairs} pairs)"
+        noun = "pair" if report.pairing.pairs == 1 else "pairs"
+        mode = f"paired ({report.pairing.pairs} {noun})"
     else:
         mode = "unpaired (0 pairs)"
     if difference is None:

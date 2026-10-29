@@ -454,3 +454,127 @@ def test_example_workflow_is_a_copyable_gate() -> None:
     assert "baseline.jsonl" in text
     assert "--compare candidate baseline" in text
     assert "secrets." not in text
+
+
+CODEX = Path(__file__).resolve().parent / "fixtures" / "codex"
+
+
+def _import_codex(source: Path, variant: str, output: Path):
+    return runner.invoke(
+        app,
+        ["import", "codex", str(source), "--variant", variant, "--output", str(output)],
+    )
+
+
+def _rollout(path: Path, session_id: str, input_tokens: int) -> None:
+    usage = {
+        "input_tokens": input_tokens,
+        "cached_input_tokens": 0,
+        "output_tokens": 0,
+    }
+    lines = [
+        json.dumps({"type": "session_meta", "payload": {"id": session_id, "synthetic": True}}),
+        json.dumps({"type": "turn_context", "payload": {"model": "gpt-4o-mini"}}),
+        json.dumps(
+            {
+                "type": "event_msg",
+                "payload": {
+                    "type": "token_count",
+                    "info": {"total_token_usage": usage, "last_token_usage": usage},
+                },
+            }
+        ),
+    ]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def test_imported_codex_fixtures_do_not_look_like_a_regression(tmp_path: Path) -> None:
+    left = tmp_path / "a.jsonl"
+    right = tmp_path / "b.jsonl"
+    assert _import_codex(CODEX / "rollout-synthetic-a.jsonl", "A", left).exit_code == 0
+    assert _import_codex(CODEX / "rollout-synthetic-b.jsonl", "B", right).exit_code == 0
+    summary = tmp_path / "summary.md"
+    result = runner.invoke(
+        app,
+        [
+            "report",
+            str(left),
+            str(right),
+            "--compare",
+            "A",
+            "B",
+            "--fail-if-worse",
+            "--markdown-summary",
+            str(summary),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    text = summary.read_text(encoding="utf-8")
+    assert "**Gate:** pass" in text
+    assert "**Mode:** unpaired (0 pairs)" in text
+    assert "No shared task_id" in text
+    blocked = runner.invoke(
+        app,
+        [
+            "report",
+            str(left),
+            str(right),
+            "--compare",
+            "A",
+            "B",
+            "--max-regression",
+            "5",
+        ],
+    )
+    assert blocked.exit_code == 1
+    assert blocked.exit_code != 3
+    assert "--max-regression" in blocked.stderr
+
+
+def test_imported_paired_session_can_trip_the_percent_gate(tmp_path: Path) -> None:
+    baseline = tmp_path / "rollout-baseline.jsonl"
+    candidate = tmp_path / "rollout-candidate.jsonl"
+    _rollout(baseline, "shared-session", 1_000_000)
+    _rollout(candidate, "shared-session", 3_000_000)
+    baseline_trace = tmp_path / "baseline.jsonl"
+    candidate_trace = tmp_path / "candidate.jsonl"
+    assert _import_codex(baseline, "baseline", baseline_trace).exit_code == 0
+    assert _import_codex(candidate, "candidate", candidate_trace).exit_code == 0
+    summary = tmp_path / "summary.md"
+    held = runner.invoke(
+        app,
+        [
+            "report",
+            str(candidate_trace),
+            str(baseline_trace),
+            "--compare",
+            "candidate",
+            "baseline",
+            "--fail-if-worse",
+            "--markdown-summary",
+            str(summary),
+        ],
+    )
+    assert held.exit_code == 0, held.output
+    assert "**Mode:** paired (1 pair)" in summary.read_text(encoding="utf-8")
+    assert "Fewer than 5" in held.stdout
+    tripped = runner.invoke(
+        app,
+        [
+            "report",
+            str(candidate_trace),
+            str(baseline_trace),
+            "--compare",
+            "candidate",
+            "baseline",
+            "--max-regression",
+            "5",
+            "--markdown-summary",
+            str(summary),
+        ],
+    )
+    assert tripped.exit_code == 3, tripped.output
+    text = summary.read_text(encoding="utf-8")
+    assert "**Gate:** regression" in text
+    assert "**Mode:** paired (1 pair)" in text
+    assert "exceeds the 5% threshold" in text
