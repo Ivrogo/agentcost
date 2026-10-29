@@ -73,6 +73,13 @@
       "evidence": "evidencias.log#cache-md-3.12.txt"
     },
     {
+      "name": "ci_matrix",
+      "command": "gh run view 40854703661 && gh run view 40854751210",
+      "result": "pass",
+      "detail": "Push 40854703661 y pull_request 40854751210 en success. 18 checks: Ubuntu, macOS y Windows con Python 3.10, 3.11 y 3.12, todos pass.",
+      "evidence": "evidencias.log#ci-pr.txt"
+    },
+    {
       "name": "ci_otros_sistemas",
       "command": "not run",
       "result": "skipped",
@@ -100,6 +107,7 @@
     "evidencias.log#report-json.txt",
     "evidencias.log#cache-md-3.12.txt",
     "evidencias.log#cache-json-3.12.stdout.txt",
+    "evidencias.log#ci-pr.txt",
     "evidencias.log#scope.txt"
   ]
 }

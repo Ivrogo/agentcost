@@ -348,3 +348,8 @@ openai total_cost 0.005615 cache_savings 0.0024
 anthropic total_cost 0.015384 cache_savings 0.004449
 The full transcripts kept here are report-json (3.12) and cache-md-3.12 plus cache-json-3.12 stdout.
 The other versions matched those figures.
+
+=== ci-pr.txt ===
+push 40854703661 conclusion=success https://github.com/Ivrogo/agentcost/actions/runs/40854703661
+pull_request 40854751210 conclusion=success https://github.com/Ivrogo/agentcost/actions/runs/40854751210
+18 checks, ubuntu macos windows by Python 3.10 3.11 3.12, all pass. Pipx runs inside the Ubuntu 3.12 job of .github/workflows/ci.yml.
