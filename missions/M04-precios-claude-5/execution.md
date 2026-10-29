@@ -23,6 +23,12 @@ GREEN de implementación, el mismo venv, tras las filas: `pytest -q` 82 passed, 
 
 Validación, sin reutilizar ese venv. Raíz `/tmp/agentcost-verify-20261029104524-3579`. Python 3.10.22, 3.11.18 y 3.12.16 vía `uv python find`. Doctor editable y clean en los tres. pytest 82 passed en cada desarrollo. ruff en el desarrollo 3.12. El informe JSON de `examples/research_agent` en los tres venv limpios: `better`, A `0.000498375`, B `0.0104`, 8 pares. El e2e de Claude usa las sesiones adjuntas (no se suben) y, otra vez, las fixtures del repo: `report --compare A B` sin `--allow-unpriced` sale 0, A `$0.1333972`, B `$1.883338`.
 
+## Merge de origin/main
+
+`main` avanzó al #10 (`84bc848`, modo CI, 101 tests). Merge de `origin/main` en esta rama, sin rebase y sin force-push. Git no dejó conflictos: README, CHANGELOG y la knowledge base quedaron con las dos entradas. `pytest -q` tras el merge: 102 passed (101 de main más el test de la tarifa de 1 hora).
+
+E2E otra vez, venv limpio 3.12, cwd fuera del árbol, sesiones adjuntas, sin `--allow-unpriced`: salida 0, A `$0.1333972`, B `$1.883338`. El mismo informe con `--fail-if-worse --max-regression 5` sale 1: los precios se aplican y el veredicto es `inconclusive` (A no es peor; hay una tarea por brazo), y `--max-regression` pide un IC relativo emparejado que estas dos sesiones no tienen. No es un modelo sin precio.
+
 ## Escalados
 
 Ninguno.
