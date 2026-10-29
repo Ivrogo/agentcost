@@ -1,6 +1,6 @@
 # Review de código — M02
 
-Self-review de la misma sesión. El encargo pide esa revisión antes de dar el PR por listo; no hay un segundo revisor en esta ejecución. SHA de trabajo: el árbol aún no está commiteado. El diff funcional es `src/agentcost/{models,parse,pricing,report}.py`, `src/agentcost/data/prices.json`, `tests/test_cache.py`, `tests/test_cli.py` y `tests/test_pricing.py`.
+Self-review de la misma sesión. El encargo pide esa revisión antes de dar el PR por listo; no hay un segundo revisor en esta ejecución. SHA revisado: `5f17365c54059041439ccb52721134263372af5d`. El diff funcional es `src/agentcost/{models,parse,pricing,report}.py`, `src/agentcost/data/prices.json`, `tests/test_cache.py`, `tests/test_cli.py` y `tests/test_pricing.py`.
 
 Regla cargada: `harness.mdc`. Se leyó `security-advisor.mdc`; sus globs no entran.
 
