@@ -142,6 +142,8 @@ Bundled cache rates, USD per 1,000,000 tokens, checked against the vendor page o
 | `o3-mini` | 0.55 | | | same |
 | `o4-mini` | 0.275 | | | same |
 | `claude-sonnet-4` | 0.30 | 3.75 | 6 | [Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing) (Claude Sonnet 4) |
+| `claude-sonnet-5` | 0.20 | 2.50 | 4 | same page (Claude Sonnet 5). API id `claude-sonnet-5` on [the model page](https://platform.claude.com/docs/en/models/sonnet-5/overview). Input 2, output 10. |
+| `claude-fable-5` | 1 | 12.50 | 20 | same page (Claude Fable 5). API id `claude-fable-5` on [the model page](https://platform.claude.com/docs/en/models/fable-5/overview). Input 10, output 50. |
 | `claude-3-5-haiku` | 0.08 | 1 | 1.60 | same page (Claude Haiku 3.5) |
 | `claude-3-5-sonnet` | | | | Not on that page. No cache rate is invented. |
 | `gemini-2.5-flash`, `gemini-2.5-pro` | | | | No Gemini cache rate is published in this table. |
@@ -200,7 +202,7 @@ One session is one task and one run. `task_id` and `run_id` are the Claude `sess
 
 ### Claude Code
 
-Only `assistant` lines with `message.usage` count. The same `message.id` and `requestId` count once, including a copy in another file. Without a request id, a `msg_` or `resp_` id collapses inside the session across timestamps; any other id also keeps the timestamp. A sidechain replay that copies a parent message under a new request id is counted again. The usage object is Anthropic's: `input_tokens` stays ordinary input, `cache_read_input_tokens` is a read, and `cache_creation.ephemeral_5m_input_tokens` / `ephemeral_1h_input_tokens` are the two writes. Without that split, `cache_creation_input_tokens` is a 5-minute write.
+Only `assistant` lines with `message.usage` count. The same `message.id` and `requestId` count once, including a copy in another file. Without a request id, a `msg_` or `resp_` id collapses inside the session across timestamps; any other id also keeps the timestamp. A sidechain or subagent replay is counted again; see Known risk below. The usage object is Anthropic's: `input_tokens` stays ordinary input, `cache_read_input_tokens` is a read, and `cache_creation.ephemeral_5m_input_tokens` / `ephemeral_1h_input_tokens` are the two writes. Without that split, `cache_creation_input_tokens` is a 5-minute write.
 
 ```bash
 agentcost import claude-code session.jsonl --variant A --output a.jsonl
@@ -209,7 +211,15 @@ agentcost import claude-code --variant A
 
 With no path, the command reads `~/.claude/projects/**/*.jsonl`. `CLAUDE_CONFIG_DIR`, when set, replaces that directory. It is a comma-separated list of config directories that contain `projects/`, or a `projects/` directory itself. A path may be one file or a directory, and nothing outside it is read. A symlink that resolves outside a scanned directory is skipped.
 
-`claude-sonnet-5` and `claude-fable-5`, the names in the anonymized fixtures, are not in the price table. `--allow-unpriced` names them and prices them at zero. Without the flag the report exits 1 and names them. No price is added for them.
+`claude-sonnet-5` and `claude-fable-5`, the names in the anonymized fixtures, are in the bundled table. `agentcost report` on those sessions exits 0 without `--allow-unpriced`. On the deduped totals the cost is $0.1333972 (Sonnet 5) and $1.883338 (Fable 5). The 1-hour cache write is $0.06594 and $0.66322.
+
+#### Known risk
+
+A Claude sidechain or subagent that repeats a parent assistant message under a different `requestId` is counted twice. The dedupe key is `message.id` plus `requestId`, so the new request id is a second row. Messages that belong to the subagent, with their own `message.id`, are real API calls and stay in the total. The extra cost is the replayed parent usage.
+
+Detect it on the source JSONL, before import. Group `assistant` lines that have `message.usage` by `message.id`. The same id with more than one `requestId`, when at least one of those lines has `isSidechain: true`, is a replay. Claude Code also writes these files under `subagents/` (for example `agent-aside_question-*.jsonl`). The imported trace drops `requestId` and `isSidechain`, so the report cannot point at the duplicate afterwards.
+
+This version does not dedupe that case. The safe rule, left for a later change: when a `message.id` is already kept and the `requestId` differs, drop the copy only if one of the two lines has `isSidechain: true`, and keep the line that is not a sidechain. Do not fold two lines that are both from the main session. Collapsing on `message.id` alone would drop a case these fixtures do not show.
 
 ### Codex CLI
 
