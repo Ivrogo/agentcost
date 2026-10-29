@@ -1,0 +1,126 @@
+{
+  "status": "passed",
+  "task": "M03-modo-ci",
+  "checks": [
+    {
+      "name": "pytest_3_10",
+      "command": "/tmp/agentcost-verify-20261029103543-3751/venv-3.10/bin/pytest -q",
+      "result": "pass",
+      "detail": "86 passed, exit 0",
+      "evidence": "evidencias.log#pytest-3.10.txt"
+    },
+    {
+      "name": "pytest_3_11",
+      "command": "/tmp/agentcost-verify-20261029103543-3751/venv-3.11/bin/pytest -q",
+      "result": "pass",
+      "detail": "86 passed, exit 0",
+      "evidence": "evidencias.log#pytest-3.11.txt"
+    },
+    {
+      "name": "pytest_3_12",
+      "command": "/tmp/agentcost-verify-20261029103543-3751/venv-3.12/bin/pytest -q",
+      "result": "pass",
+      "detail": "86 passed, exit 0",
+      "evidence": "evidencias.log#pytest-3.12.txt"
+    },
+    {
+      "name": "ruff_check",
+      "command": "/tmp/agentcost-verify-20261029103543-3751/venv-3.12/bin/ruff check .",
+      "result": "pass",
+      "detail": "All checks passed, exit 0",
+      "evidence": "evidencias.log#ruff-check.txt"
+    },
+    {
+      "name": "ruff_format",
+      "command": "/tmp/agentcost-verify-20261029103543-3751/venv-3.12/bin/ruff format --check .",
+      "result": "pass",
+      "detail": "53 files already formatted, exit 0",
+      "evidence": "evidencias.log#ruff-format.txt"
+    },
+    {
+      "name": "clean_install_3_10",
+      "command": "python3.10 -m venv clean-3.10 && python -m pip install . && doctor clean",
+      "result": "pass",
+      "detail": "version 0.1.0, módulo en site-packages, agentcost --help contiene report",
+      "evidence": "evidencias.log#doctor.txt"
+    },
+    {
+      "name": "clean_install_3_11",
+      "command": "python3.11 -m venv clean-3.11 && python -m pip install . && doctor clean",
+      "result": "pass",
+      "detail": "version 0.1.0, módulo en site-packages, agentcost --help contiene report",
+      "evidence": "evidencias.log#doctor.txt"
+    },
+    {
+      "name": "clean_install_3_12",
+      "command": "python3.12 -m venv clean-3.12 && python -m pip install . && doctor clean",
+      "result": "pass",
+      "detail": "version 0.1.0, módulo en site-packages, agentcost --help contiene report",
+      "evidence": "evidencias.log#doctor.txt"
+    },
+    {
+      "name": "e2e_cli_json",
+      "command": "agentcost report examples/research_agent/traces.jsonl --compare A B --format json",
+      "result": "pass",
+      "detail": "exit 0; stderr vacío; verdict better; A 0.000498375; B 0.0104; pairing paired; 8 pairs",
+      "evidence": "evidencias.log#report-json.txt"
+    },
+    {
+      "name": "e2e_ci_pass",
+      "command": "agentcost report examples/research_agent/traces.jsonl --compare A B --fail-if-worse --max-regression 5 --markdown-summary ci-pass.md --github-step-summary",
+      "result": "pass",
+      "detail": "exit 0; stderr vacío; Gate pass; paired 8 pairs; el resumen y GITHUB_STEP_SUMMARY coinciden",
+      "evidence": "evidencias.log#ci-pass.txt"
+    },
+    {
+      "name": "e2e_ci_fail",
+      "command": "agentcost report examples/research_agent/traces.jsonl --compare B A --fail-if-worse --max-regression 5 --markdown-summary ci-fail.md",
+      "result": "pass",
+      "detail": "exit 3; Gate regression; paired 8 pairs; el informe se escribió",
+      "evidence": "evidencias.log#ci-fail.txt"
+    },
+    {
+      "name": "e2e_format_invalid",
+      "command": "agentcost report examples/research_agent/traces.jsonl --compare A B --format yaml",
+      "result": "pass",
+      "detail": "exit 1; stderr contiene --format must be md, json, or both",
+      "evidence": "evidencias.log#format-invalid.txt"
+    },
+    {
+      "name": "actionlint_example",
+      "command": "actionlint examples/ci/agentcost.yml",
+      "result": "pass",
+      "detail": "actionlint 1.7.12, exit 0, sin avisos",
+      "evidence": "evidencias.log#actionlint.txt"
+    },
+    {
+      "name": "ci_otros_sistemas",
+      "command": "not run",
+      "result": "skipped",
+      "detail": "Esta máquina es Linux. macOS, Windows y pipx los ejecuta .github/workflows/ci.yml.",
+      "evidence": "evidencias.log#scope.txt"
+    }
+  ],
+  "environment": {
+    "runtime": "venv limpio",
+    "python": "3.10.22, 3.11.18, 3.12.16",
+    "base_commit": "133cd76267861877e785e096785c00c330dbacf1"
+  },
+  "model_tier_used": "complex",
+  "escalations": 0,
+  "evidence": [
+    "evidencias.log#launch.txt",
+    "evidencias.log#doctor.txt",
+    "evidencias.log#pytest-3.10.txt",
+    "evidencias.log#pytest-3.11.txt",
+    "evidencias.log#pytest-3.12.txt",
+    "evidencias.log#ruff-check.txt",
+    "evidencias.log#ruff-format.txt",
+    "evidencias.log#report-json.txt",
+    "evidencias.log#ci-pass.txt",
+    "evidencias.log#ci-fail.txt",
+    "evidencias.log#format-invalid.txt",
+    "evidencias.log#actionlint.txt",
+    "evidencias.log#scope.txt"
+  ]
+}

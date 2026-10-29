@@ -21,5 +21,6 @@ Entradas:
 
 - [Sufijo `.json` con `--format both`](formato-both-salida-json.md). Un `--output` que ya termina en `.json` se rechaza, porque `with_suffix` no cambiaría la ruta.
 - [Comparación emparejada por task_id](comparacion-emparejada.md). La diferencia es la primera variante menos la segunda. El veredicto emparejado lee `pairing.cost`, no el solape de `intervals`.
+- [Modo CI](modo-ci.md). La regresión sale con código 3. El umbral en % compara el límite inferior del IC relativo emparejado.
 - [Contabilidad de tokens de caché](cache-token-accounting.md). OpenAI resta `cached_tokens` de la entrada; Anthropic suma lectura y escritura; OTel resta porque la convención ya los incluye en `input_tokens`.
 - [Logs locales de Claude Code y de Codex](logs-locales-claude-codex.md). Una sesión es un `task_id`. Claude suma la caché; Codex resta la lectura que ya va dentro de la entrada y no repite el acumulado.
