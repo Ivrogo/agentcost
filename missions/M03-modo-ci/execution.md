@@ -30,3 +30,5 @@ Script en el entorno, evidencia bajo `/tmp/agentcost-verify-20261029103543-3751`
 - actionlint 1.7.12 sobre `examples/ci/agentcost.yml`: exit 0, sin avisos.
 
 macOS, Windows y pipx no se ejecutan en esta máquina. Los cubre `.github/workflows/ci.yml`.
+
+`verification.json` apunta al commit de código `133cd76267861877e785e096785c00c330dbacf1`. Este registro no cambia la CLI.
