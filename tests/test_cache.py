@@ -454,6 +454,50 @@ def test_bundled_cache_prices_match_the_cited_pages() -> None:
     assert gemini.input_per_million == Decimal("1.25")
 
 
+def test_claude_5_rows_price_a_one_hour_cache_write() -> None:
+    """Rates checked on 2026-10-29 against the Anthropic pricing page and the model pages.
+
+    The API ids are ``claude-sonnet-5`` and ``claude-fable-5``. One million
+    1-hour cache-write tokens cost the published write rate, not the input rate.
+    """
+    table = PriceTable.bundled()
+    anthropic = "https://platform.claude.com/docs/en/about-claude/pricing"
+    sonnet = table.lookup("claude-sonnet-5")
+    fable = table.lookup("claude-fable-5")
+    assert sonnet == ModelPrice(
+        input_per_million=Decimal("2"),
+        output_per_million=Decimal("10"),
+        cache_read_per_million=Decimal("0.20"),
+        cache_write_5m_per_million=Decimal("2.50"),
+        cache_write_1h_per_million=Decimal("4"),
+        source=anthropic,
+        as_of="2026-10-29",
+    )
+    assert fable == ModelPrice(
+        input_per_million=Decimal("10"),
+        output_per_million=Decimal("50"),
+        cache_read_per_million=Decimal("1"),
+        cache_write_5m_per_million=Decimal("12.50"),
+        cache_write_1h_per_million=Decimal("20"),
+        source=anthropic,
+        as_of="2026-10-29",
+    )
+
+    for model, write_cost in (("claude-sonnet-5", Decimal("4")), ("claude-fable-5", Decimal("20"))):
+        event = parse_jsonl(
+            _line(
+                model=model,
+                tokens={"input": 0, "output": 0, "cache_write_1h": 1_000_000},
+            )
+        )[0]
+        arm = _priced(event)
+        assert arm.cache_write_1h_cost == write_cost
+        assert arm.cache_write_5m_cost == 0
+        assert arm.input_cost == 0
+        assert arm.total_cost == write_cost
+        assert arm.cache_priced_as_input == ()
+
+
 def test_otel_cache_attributes_are_included_in_input_tokens() -> None:
     raw = json.dumps(
         {

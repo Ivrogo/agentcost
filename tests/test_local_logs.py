@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from agentcost import PriceError, PriceTable, compare, load_traces, parse_jsonl
+from agentcost import PriceTable, compare, load_traces, parse_jsonl
 from agentcost.cli import app
 from agentcost.errors import ParseError
 from agentcost.local_logs import load_claude_code, load_codex_cli, render_imported_jsonl
@@ -523,18 +523,49 @@ def test_codex_default_directory_and_codex_home(tmp_path: Path) -> None:
     assert [item.event.task_id for item in explicit] == ["loose-file"]
 
 
-def test_unpriced_claude_models_are_named() -> None:
+def _usd(tokens: int, per_million: str) -> Decimal:
+    return Decimal(tokens) * Decimal(per_million) / Decimal(1_000_000)
+
+
+def test_claude_fixture_sessions_are_priced_without_zeroing() -> None:
+    """Deduped totals from totales.json, at the bundled Claude 5 rates.
+
+    Session A is entirely a 1-hour cache write (ephemeral_5m is 0). Session B
+    is the same shape. Neither model is listed as unpriced.
+    """
     sonnet = load_claude_code(CLAUDE / "claude-session-a.jsonl", variant="A", environ={})
     fable = load_claude_code(CLAUDE / "claude-session-b.jsonl", variant="B", environ={})
     events = [item.event for item in sonnet + fable]
-    with pytest.raises(PriceError, match="claude-fable-5"):
-        compare(events, ("A", "B"))
-    report = compare(events, ("A", "B"), on_missing="zero")
-    assert report.arm("A").unpriced_models == ("claude-sonnet-5",)
-    assert report.arm("B").unpriced_models == ("claude-fable-5",)
-    assert report.arm("A").total_cost == 0
-    assert report.arm("A").tokens.median == Decimal(58358)
-    assert report.arm("B").tokens.median == Decimal(113674)
+    report = compare(events, ("A", "B"))
+    expected = json.loads((CLAUDE / "totales.json").read_text(encoding="utf-8"))
+    raw_a = expected["claude-session-a"]["totales"]["claude-sonnet-5"]
+    raw_b = expected["claude-session-b"]["totales"]["claude-fable-5"]
+    arm_a = report.arm("A")
+    arm_b = report.arm("B")
+    assert arm_a.unpriced_models == ()
+    assert arm_b.unpriced_models == ()
+    assert arm_a.cache_priced_as_input == ()
+    assert arm_b.cache_priced_as_input == ()
+    assert arm_a.tokens.median == Decimal(58358)
+    assert arm_b.tokens.median == Decimal(113674)
+    assert arm_a.cache_write_5m_cost == _usd(raw_a["ephemeral_5m_input_tokens"], "2.50")
+    assert arm_b.cache_write_5m_cost == _usd(raw_b["ephemeral_5m_input_tokens"], "12.50")
+    assert arm_a.cache_write_1h_cost == _usd(raw_a["ephemeral_1h_input_tokens"], "4")
+    assert arm_a.total_cost == (
+        _usd(raw_a["input_tokens"], "2")
+        + _usd(raw_a["output_tokens"], "10")
+        + _usd(raw_a["cache_read_input_tokens"], "0.20")
+        + _usd(raw_a["ephemeral_1h_input_tokens"], "4")
+        + _usd(raw_a["ephemeral_5m_input_tokens"], "2.50")
+    )
+    assert arm_b.cache_write_1h_cost == _usd(raw_b["ephemeral_1h_input_tokens"], "20")
+    assert arm_b.total_cost == (
+        _usd(raw_b["input_tokens"], "10")
+        + _usd(raw_b["output_tokens"], "50")
+        + _usd(raw_b["cache_read_input_tokens"], "1")
+        + _usd(raw_b["ephemeral_1h_input_tokens"], "20")
+        + _usd(raw_b["ephemeral_5m_input_tokens"], "12.50")
+    )
 
 
 def test_cli_imports_fixtures_and_reports_them(tmp_path: Path) -> None:
@@ -571,18 +602,38 @@ def test_cli_imports_fixtures_and_reports_them(tmp_path: Path) -> None:
         claude_a.read_text(encoding="utf-8") + claude_b.read_text(encoding="utf-8"),
         encoding="utf-8",
     )
-    refused = runner.invoke(app, ["report", str(combined), "--compare", "A", "B"])
-    assert refused.exit_code == 1
-    assert "claude-sonnet-5" in refused.stderr
-    assert "claude-fable-5" in refused.stderr
-    warned = runner.invoke(
+    reported_claude = runner.invoke(
         app,
-        ["report", str(combined), "--compare", "A", "B", "--allow-unpriced"],
+        ["report", str(combined), "--compare", "A", "B", "--format", "json"],
     )
-    assert warned.exit_code == 0, warned.output
-    assert "Unpriced models treated as zero cost" in warned.stdout
-    assert "`claude-sonnet-5`" in warned.stdout
-    assert "`claude-fable-5`" in warned.stdout
+    assert reported_claude.exit_code == 0, reported_claude.output
+    claude_payload = json.loads(reported_claude.stdout)
+    assert claude_payload["arms"]["A"]["unpriced_models"] == []
+    assert claude_payload["arms"]["B"]["unpriced_models"] == []
+    expected = json.loads((CLAUDE / "totales.json").read_text(encoding="utf-8"))
+    raw_a = expected["claude-session-a"]["totales"]["claude-sonnet-5"]
+    raw_b = expected["claude-session-b"]["totales"]["claude-fable-5"]
+    cost_a = (
+        _usd(raw_a["input_tokens"], "2")
+        + _usd(raw_a["output_tokens"], "10")
+        + _usd(raw_a["cache_read_input_tokens"], "0.20")
+        + _usd(raw_a["ephemeral_1h_input_tokens"], "4")
+    )
+    cost_b = (
+        _usd(raw_b["input_tokens"], "10")
+        + _usd(raw_b["output_tokens"], "50")
+        + _usd(raw_b["cache_read_input_tokens"], "1")
+        + _usd(raw_b["ephemeral_1h_input_tokens"], "20")
+    )
+    assert Decimal(str(claude_payload["arms"]["A"]["total_cost"])) == cost_a
+    assert Decimal(str(claude_payload["arms"]["B"]["total_cost"])) == cost_b
+    assert Decimal(str(claude_payload["arms"]["A"]["cost_breakdown"]["cache_write_1h"])) == _usd(
+        raw_a["ephemeral_1h_input_tokens"], "4"
+    )
+    assert Decimal(str(claude_payload["arms"]["B"]["cost_breakdown"]["cache_write_1h"])) == _usd(
+        raw_b["ephemeral_1h_input_tokens"], "20"
+    )
+    assert "Unpriced models" not in reported_claude.stdout
 
     codex_a = tmp_path / "codex-a.jsonl"
     codex_b = tmp_path / "codex-b.jsonl"
@@ -740,7 +791,6 @@ def test_imported_session_pairs_by_task_id(tmp_path: Path) -> None:
             "A",
             "B",
             "--paired",
-            "--allow-unpriced",
         ],
     )
     assert refused.exit_code == 1

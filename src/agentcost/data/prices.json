@@ -71,6 +71,24 @@
       "source": "https://platform.claude.com/docs/en/about-claude/pricing",
       "as_of": "2026-10-29"
     },
+    "claude-sonnet-5": {
+      "input": 2,
+      "output": 10,
+      "cache_read": 0.2,
+      "cache_write_5m": 2.5,
+      "cache_write_1h": 4,
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "as_of": "2026-10-29"
+    },
+    "claude-fable-5": {
+      "input": 10,
+      "output": 50,
+      "cache_read": 1,
+      "cache_write_5m": 12.5,
+      "cache_write_1h": 20,
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "as_of": "2026-10-29"
+    },
     "gemini-2.5-flash": {"input": 0.3, "output": 2.5},
     "gemini-2.5-pro": {"input": 1.25, "output": 10}
   }
