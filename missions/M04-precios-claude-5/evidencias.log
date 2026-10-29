@@ -1,0 +1,356 @@
+=== pytest-red.txt ===
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______________ test_claude_5_rows_price_a_one_hour_cache_write ________________
+E       AssertionError: assert None == ModelPrice(input_per_million=Decimal('2'), output_per_million=Decimal('10'), cache_read_per_million=Decimal('0.20'), cache_write_5m_per_million=Decimal('2.50'), cache_write_1h_per_million=Decimal('4'), source='https://platform.claude.com/docs/en/about-claude/pricing', as_of='2026-10-29')
+tests/test_cache.py:467: AssertionError
+FAILED tests/test_cache.py::test_claude_5_rows_price_a_one_hour_cache_write
+1 failed in 0.10s
+EXIT:1
+
+=== launch.txt ===
+repo=/workspace
+root=/tmp/agentcost-verify-20261029104524-3579
+py310=/home/ubuntu/.local/share/uv/python/cpython-3.10-linux-x86_64-gnu/bin/python3.10 Python 3.10.22
+py311=/home/ubuntu/.local/share/uv/python/cpython-3.11-linux-x86_64-gnu/bin/python3.11 Python 3.11.18
+py312=/home/ubuntu/.local/share/uv/python/cpython-3.12-linux-x86_64-gnu/bin/python3.12 Python 3.12.16
+
+=== doctor-editable-3.10.txt ===
+mode=editable
+version=0.1.0
+module=/workspace/src/agentcost/__init__.py
+python=Python 3.10.22
+
+=== doctor-clean-3.10.txt ===
+mode=clean
+version=0.1.0
+module=/tmp/agentcost-verify-20261029104524-3579/clean-3.10/lib/python3.10/site-packages/agentcost/__init__.py
+python=Python 3.10.22
+
+=== doctor-editable-3.11.txt ===
+mode=editable
+version=0.1.0
+module=/workspace/src/agentcost/__init__.py
+python=Python 3.11.18
+
+=== doctor-clean-3.11.txt ===
+mode=clean
+version=0.1.0
+module=/tmp/agentcost-verify-20261029104524-3579/clean-3.11/lib/python3.11/site-packages/agentcost/__init__.py
+python=Python 3.11.18
+
+=== doctor-editable-3.12.txt ===
+mode=editable
+version=0.1.0
+module=/workspace/src/agentcost/__init__.py
+python=Python 3.12.16
+
+=== doctor-clean-3.12.txt ===
+mode=clean
+version=0.1.0
+module=/tmp/agentcost-verify-20261029104524-3579/clean-3.12/lib/python3.12/site-packages/agentcost/__init__.py
+python=Python 3.12.16
+
+=== pytest-3.10.txt ===
+........................................................................ [ 87%]
+..........                                                               [100%]
+82 passed in 0.72s
+
+=== pytest-3.11.txt ===
+........................................................................ [ 87%]
+..........                                                               [100%]
+82 passed in 0.60s
+
+=== pytest-3.12.txt ===
+........................................................................ [ 87%]
+..........                                                               [100%]
+82 passed in 0.41s
+
+=== ruff-check.txt ===
+[1;32mAll checks passed![0m
+
+=== ruff-format.txt ===
+57 files already formatted
+
+=== report-json.exit ===
+0
+
+=== report-json.stdout.txt ===
+{
+  "schema_version": "0.1",
+  "price_table_version": "2026-10-29",
+  "currency": "USD",
+  "compare": [
+    "A",
+    "B"
+  ],
+  "metric": "cost_per_solved_task",
+  "verdict": "better",
+  "verdict_reason": "A costs less per paired task than B; the bootstrap 95% interval of the mean difference does not include 0.",
+  "bootstrap": {
+    "seed": 42,
+    "resamples": 1000,
+    "level": 0.95
+  },
+  "arms": {
+    "A": {
+      "tasks": 8,
+      "successful_tasks": 8,
+      "runs": 9,
+      "successful_runs": 8,
+      "failed_runs": 1,
+      "success_rate": 1,
+      "total_cost": 0.003987,
+      "failed_run_cost": 0.000207,
+      "failed_run_tokens": 1020,
+      "cost_per_solved_task": 0.000498375,
+      "unpriced_models": [],
+      "cost_breakdown": {
+        "input": 0.002247,
+        "output": 0.00174,
+        "cache_read": 0,
+        "cache_write": 0,
+        "cache_write_5m": 0,
+        "cache_write_1h": 0
+      },
+      "cache_savings": 0,
+      "cache_priced_as_input": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.0004515,
+          "median": 0.0004935,
+          "p75": 0.00053025
+        },
+        "tokens": {
+          "p25": 2012.5,
+          "median": 2202.5,
+          "p75": 2368.75
+        },
+        "steps": {
+          "p25": 3,
+          "median": 3,
+          "p75": 3
+        }
+      }
+    },
+    "B": {
+      "tasks": 8,
+      "successful_tasks": 7,
+      "runs": 8,
+      "successful_runs": 7,
+      "failed_runs": 1,
+      "success_rate": 0.875,
+      "total_cost": 0.0728,
+      "failed_run_cost": 0.0098,
+      "failed_run_tokens": 2420,
+      "cost_per_solved_task": 0.0104,
+      "unpriced_models": [],
+      "cost_breakdown": {
+        "input": 0.0356,
+        "output": 0.0372,
+        "cache_read": 0,
+        "cache_write": 0,
+        "cache_write_5m": 0,
+        "cache_write_1h": 0
+      },
+      "cache_savings": 0,
+      "cache_priced_as_input": [],
+      "per_task": {
+        "cost": {
+          "p25": 0.00875,
+          "median": 0.0091,
+          "p75": 0.00945
+        },
+        "tokens": {
+          "p25": 2157.5,
+          "median": 2245,
+          "p75": 2332.5
+        },
+        "steps": {
+          "p25": 2,
+          "median": 2,
+          "p75": 2
+        }
+      }
+    }
+  },
+  "intervals": {
+    "A": {
+      "low": 0.000454125,
+      "high": 0.00055055625
+    },
+    "B": {
+      "low": 0.008824375,
+      "high": 0.015121
+    }
+  },
+  "pairing": {
+    "mode": "paired",
+    "requested": "auto",
+    "pairs": 8,
+    "shared": 8,
+    "unmatched": {
+      "A": 0,
+      "B": 0
+    },
+    "warning": null,
+    "metrics": {
+      "cost": {
+        "mean_difference": -0.008601625,
+        "interval": {
+          "low": -0.008896,
+          "high": -0.0083295375
+        },
+        "includes_zero": false,
+        "relative_change_percent": -94.523351648352,
+        "relative_interval": {
+          "low": -94.911764705882,
+          "high": -93.96694214876
+        },
+        "relative_includes_zero": false
+      },
+      "tokens": {
+        "mean_difference": -10,
+        "interval": {
+          "low": -176.875,
+          "high": 239.375
+        },
+        "includes_zero": true,
+        "relative_change_percent": -0.445434298441,
+        "relative_interval": {
+          "low": -8.035207268597,
+          "high": 10.692350642099
+        },
+        "relative_includes_zero": true
+      },
+      "steps": {
+        "mean_difference": 1.375,
+        "interval": {
+          "low": 1,
+          "high": 2.125
+        },
+        "includes_zero": false,
+        "relative_change_percent": 68.75,
+        "relative_interval": {
+          "low": 50,
+          "high": 106.25
+        },
+        "relative_includes_zero": false
+      }
+    }
+  }
+}
+
+=== report-json.stderr.txt ===
+
+
+=== report-json-310.exit ===
+0
+
+=== report-json-311.exit ===
+0
+
+=== import-claude-a.exit ===
+0
+
+=== import-claude-b.exit ===
+0
+
+=== report-claude.exit ===
+0
+
+=== report-claude.stdout.txt ===
+# agentcost report
+
+**Verdict:** inconclusive
+
+Fewer than 5 tasks in at least one variant (A=1, B=1).
+
+**Pairing:** unpaired (0 pairs).
+
+No shared task_id between 'A' and 'B'. Using the unpaired comparison.
+
+Lower cost per solved task is better. The denominator is solved tasks. Failed runs stay in the numerator and in the per-task distributions, and are also listed on their own rows.
+
+| Metric | A | B |
+| --- | ---: | ---: |
+| Tasks | 1 | 1 |
+| Successful tasks | 1 | 1 |
+| Success rate | 100% | 100% |
+| Cost per solved task | $0.1333972 | $1.883338 |
+| Cost per task, median (p25–p75) | $0.1333972 ($0.1333972–$0.1333972) | $1.883338 ($1.883338–$1.883338) |
+| Tokens per task, median (p25–p75) | 58358 (58358–58358) | 113674 (113674–113674) |
+| Steps per task, median (p25–p75) | 1 (1–1) | 2 (2–2) |
+| Runs | 1 | 1 |
+| Failed runs | 0 | 0 |
+| Failed-run cost | $0 | $0 |
+| Failed-run tokens | 0 | 0 |
+| Input cost | $0.030792 | $0.15714 |
+| Output cost | $0.03201 | $1.01855 |
+| Cache read cost | $0.0046552 | $0.044428 |
+| Cache write cost | $0.06594 (5 min $0, 1 h $0.06594) | $0.66322 (5 min $0, 1 h $0.66322) |
+| Cache savings vs input price | $0.0089268 | $0.068242 |
+
+Price table `2026-10-29` (USD per 1,000,000 tokens). Bootstrap 95% intervals, 1000 resamples, seed 42.
+
+=== report-claude.stderr.txt ===
+No shared task_id between 'A' and 'B'. Using the unpaired comparison.
+
+=== import-claude.exit ===
+0
+
+=== import-claude.stdout.txt ===
+# agentcost report
+
+**Verdict:** inconclusive
+
+Fewer than 5 tasks in at least one variant (A=1, B=1).
+
+**Pairing:** unpaired (0 pairs).
+
+No shared task_id between 'A' and 'B'. Using the unpaired comparison.
+
+Lower cost per solved task is better. The denominator is solved tasks. Failed runs stay in the numerator and in the per-task distributions, and are also listed on their own rows.
+
+| Metric | A | B |
+| --- | ---: | ---: |
+| Tasks | 1 | 1 |
+| Successful tasks | 1 | 1 |
+| Success rate | 100% | 100% |
+| Cost per solved task | $0.1333972 | $1.883338 |
+| Cost per task, median (p25–p75) | $0.1333972 ($0.1333972–$0.1333972) | $1.883338 ($1.883338–$1.883338) |
+| Tokens per task, median (p25–p75) | 58358 (58358–58358) | 113674 (113674–113674) |
+| Steps per task, median (p25–p75) | 1 (1–1) | 2 (2–2) |
+| Runs | 1 | 1 |
+| Failed runs | 0 | 0 |
+| Failed-run cost | $0 | $0 |
+| Failed-run tokens | 0 | 0 |
+| Input cost | $0.030792 | $0.15714 |
+| Output cost | $0.03201 | $1.01855 |
+| Cache read cost | $0.0046552 | $0.044428 |
+| Cache write cost | $0.06594 (5 min $0, 1 h $0.06594) | $0.66322 (5 min $0, 1 h $0.66322) |
+| Cache savings vs input price | $0.0089268 | $0.068242 |
+
+Price table `2026-10-29` (USD per 1,000,000 tokens). Bootstrap 95% intervals, 1000 resamples, seed 42.
+
+=== import-claude.stderr.txt ===
+No shared task_id between 'A' and 'B'. Using the unpaired comparison.
+
+=== pytest-3.10.exit ===
+0
+
+=== pytest-3.11.exit ===
+0
+
+=== pytest-3.12.exit ===
+0
+
+=== ruff-check.exit ===
+0
+
+=== ruff-format.exit ===
+0
+
+=== scope.txt ===
+Esta máquina es Linux. macOS, Windows y pipx los ejecuta .github/workflows/ci.yml. No se tocó la rama del modo CI.
+
