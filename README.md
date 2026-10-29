@@ -265,7 +265,8 @@ Flags for `agentcost report`:
 | `--paired` | off | Force pairing. Exits 1 when the variants share no `task_id`. |
 | `--unpaired` | off | Force the unpaired comparison, even when task ids match. |
 | `--allow-unpriced` | off | Unknown models cost zero and are named in the report. |
-| `--fail-if-worse` | off | Exit 3 when the first variant is worse on `--metric`. See [CI](#ci). |
+| `--fail-if-worse` | off | Exit 3 when the first variant is worse on `--metric`. An inconclusive verdict exits 0 and warns on stderr. See [CI](#ci). |
+| `--fail-if-inconclusive` | off | Exit 4 when the verdict is inconclusive. Requires `--fail-if-worse`. |
 | `--max-regression` | off | Exit 3 when the lower bound of the paired relative CI exceeds this percent (`5` or `5%`). |
 | `--metric` | `cost` | `cost`, `tokens`, or `steps`. Tokens and steps need a paired comparison. |
 | `--markdown-summary` | off | Write the pull-request summary to this path. |
@@ -279,7 +280,7 @@ Flags for `agentcost report`:
 
 Ask for both reports with a path that does not end in `.json`. `informe.md` writes Markdown there and JSON to `informe.json`. `informe` writes Markdown to `informe` and JSON to `informe.json`. To write only JSON, use `--format json --output informe.json`.
 
-Expected failures (missing variant, unknown model, bad JSON, a gate that cannot be applied, or `--format both` with an `--output` that already ends in `.json`) print the message to stderr and exit 1. A detected regression exits 3. See [CI](#ci).
+Expected failures (missing variant, unknown model, bad JSON, a gate that cannot be applied, `--fail-if-inconclusive` without `--fail-if-worse`, or `--format both` with an `--output` that already ends in `.json`) print the message to stderr and exit 1. A detected regression exits 3. An inconclusive verdict with `--fail-if-worse` exits 0 and warns on stderr, or exits 4 when `--fail-if-inconclusive` is also set. See [CI](#ci).
 
 `report` accepts more than one trace file and concatenates them. Variant names still come from the `variant` field.
 
@@ -307,29 +308,30 @@ agentcost report candidate.jsonl baseline.jsonl \
   --markdown-summary agentcost-summary.md
 ```
 
-Two different session ids are not paired. `--fail-if-worse` then uses the unpaired verdict, and `--max-regression` exits 1 because there is no relative interval. Import the same session id under both variant names to get one pair. With fewer than five pairs, `--fail-if-worse` does not fail; `--max-regression` still compares the lower bound of that pair's relative interval.
+Two different session ids are not paired. `--fail-if-worse` then uses the unpaired verdict. If that verdict is `inconclusive`, the command exits 0 and stderr says why: there is no shared `task_id`, and there is no relative interval when `--max-regression` was also passed. `--fail-if-inconclusive` makes that same case exit 4. If the unpaired verdict is `worse`, `--fail-if-worse` still exits 3, and adding `--max-regression` still exits 1 because the threshold cannot be applied. Import the same session id under both variant names to get one pair. With fewer than five pairs, `--fail-if-worse` does not fail and warns that the verdict is inconclusive; `--max-regression` still compares the lower bound of that pair's relative interval and can exit 3.
 
 ### Exit codes
 
 | Code | Meaning |
 | --- | --- |
-| 0 | The report was written. The gate was not requested, or it did not fail. |
-| 1 | The report or the requested gate could not be computed (bad trace, unknown model, unreadable percent, unpaired `--max-regression`, tokens or steps without pairs). This is a tool failure. |
-| 2 | The command line is invalid. Typer uses this for an unknown flag or a missing argument. It is not a regression. |
-| 3 | A regression was detected. The report, and the Markdown summary if requested, were still written. |
+| 0 | The report was written. The gate was not requested, it passed, or the verdict is `inconclusive` and `--fail-if-inconclusive` was not set. An inconclusive verdict writes the reason to stderr. |
+| 1 | The report or the requested gate could not be computed (bad trace, unknown model, unreadable percent, unpaired `--max-regression` when the verdict is not `inconclusive`, tokens or steps without pairs, `--fail-if-inconclusive` without `--fail-if-worse`). This is a tool or usage failure. |
+| 2 | The command line is invalid. Typer uses this for an unknown flag, a missing argument, or a path that does not exist. It is not a regression and it is not an inconclusive verdict. |
+| 3 | A regression was detected. The report, and the Markdown summary if requested, were still written. This still applies when the cost verdict is `inconclusive` because there are fewer than five pairs and the lower bound of the relative interval exceeds `--max-regression`. |
+| 4 | `--fail-if-inconclusive` was set with `--fail-if-worse`, and the verdict is `inconclusive`. The report was still written. Stderr says why. |
 
 ### What counts as worse
 
 `--fail-if-worse` uses the report verdict when `--metric` is `cost` (the default).
 
-- Paired: the verdict is `worse` only with at least 5 pairs and a 95% interval of the mean difference (first minus second) entirely above 0. Fewer than 5 pairs stays `inconclusive` and this flag does not fail.
+- Paired: the verdict is `worse` only with at least 5 pairs and a 95% interval of the mean difference (first minus second) entirely above 0. Fewer than 5 pairs stays `inconclusive`. This flag does not fail; it warns on stderr. `--fail-if-inconclusive` exits 4.
 - Unpaired: the verdict is `worse` when the current arm intervals are disjoint and the first arm is more expensive. The summary repeats the unpaired warning.
 
 `--metric tokens` and `--metric steps` apply that paired rule to `pairing.tokens` and `pairing.steps`. The unpaired verdict does not cover them, so the command exits 1.
 
-`--max-regression` fails when the lower bound of the paired relative 95% interval is strictly greater than the percent. The bound is the optimistic end of the interval, so a noisy point estimate inside the interval does not fail the job. A bound equal to the threshold does not fail. The check does not use the five-pair floor. It needs a paired relative interval: an unpaired report exits 1, and so does a second variant whose relative interval is undefined. It does not fall back to the point estimate.
+`--max-regression` fails when the lower bound of the paired relative 95% interval is strictly greater than the percent. The bound is the optimistic end of the interval, so a noisy point estimate inside the interval does not fail the job. A bound equal to the threshold does not fail. The check does not use the five-pair floor. It needs a paired relative interval. When the verdict is not `inconclusive`, an unpaired report exits 1, and so does a second variant whose relative interval is undefined. It does not fall back to the point estimate.
 
-Passing both flags exits 3 if either check fails. If one check cannot be applied, the command exits 1 even when the other check would have failed.
+Passing both flags exits 3 if either check fails. If one check cannot be applied and the verdict is not `inconclusive`, the command exits 1 even when the other check would have failed. If the verdict is `inconclusive`, an inapplicable `--max-regression` does not exit 1: the command warns and exits 0, or 4 with `--fail-if-inconclusive`. A threshold that does apply and finds a regression still exits 3.
 
 ### Markdown summary
 
@@ -339,7 +341,7 @@ Passing both flags exits 3 if either check fails. If one check cannot be applied
 
 ### Example workflow
 
-[`examples/ci/agentcost.yml`](examples/ci/agentcost.yml) installs agentcost, compares the two trace files, comments on the pull request with `actions/github-script`, and fails the job when the command exits 3. It is not under `.github/workflows`, so it does not run in this repository. Copy it into the repository that produces the traces.
+[`examples/ci/agentcost.yml`](examples/ci/agentcost.yml) installs agentcost, compares the two trace files, comments on the pull request with `actions/github-script`, and fails the job when the command exits non-zero (a regression is 3; an inconclusive verdict is 0 unless the step also passes `--fail-if-inconclusive`, which exits 4). It is not under `.github/workflows`, so it does not run in this repository. Copy it into the repository that produces the traces.
 
 The job token needs `contents: read` (checkout) and `pull-requests: write` (the comment). The workflow does not use any other credential. It comments on pull requests opened from the same repository; a fork pull request's token cannot write comments on this event.
 

@@ -20,7 +20,7 @@ Preconditions:
 - El directorio de trabajo es `$ROOT/work`.
 
 - **Ayuda general.** Pide la ayuda del programa. Ejecuta `"$REPO/.cursor/skills/verify-agentcost/scripts/drive.sh" "$EVIDENCE" help-root -- "$VENV/bin/agentcost" --help`. `$EVIDENCE/help-root.exit` es `0` y stdout contiene `report` y `Build an A/B cost report from a trace file.`
-- **Ayuda del informe.** Pide la ayuda del comando. Ejecuta `"$REPO/.cursor/skills/verify-agentcost/scripts/drive.sh" "$EVIDENCE" help-report -- "$VENV/bin/agentcost" report --help`. `$EVIDENCE/help-report.exit` es `0` y stdout contiene `--compare`, `--format`, `--paired` y `--unpaired`.
+- **Ayuda del informe.** Pide la ayuda del comando. Ejecuta `"$REPO/.cursor/skills/verify-agentcost/scripts/drive.sh" "$EVIDENCE" help-report -- "$VENV/bin/agentcost" report --help`. `$EVIDENCE/help-report.exit` es `0` y stdout contiene `--compare`, `--format`, `--paired`, `--unpaired` y `--fail-if-inconclusive`.
 - **Prueba.** Conserva los dos transcripts. La ayuda no escribe ficheros.
 
 ## Gotchas

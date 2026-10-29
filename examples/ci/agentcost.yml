@@ -26,6 +26,9 @@ jobs:
 
       # candidate.jsonl and baseline.jsonl are agentcost traces.
       # They can be the JSONL written by `agentcost import`.
+      # An inconclusive verdict exits 0 and prints the reason on stderr.
+      # Add --fail-if-inconclusive (it requires --fail-if-worse) to exit 4.
+      # A regression still exits 3. Exit 1 is a usage or input error.
       - name: Compare traces
         run: |
           set -euo pipefail
