@@ -97,7 +97,7 @@
   "environment": {
     "runtime": "venv limpio",
     "python": "3.10.22, 3.11.18, 3.12.16",
-    "base_commit": "PENDING"
+    "base_commit": "cbedc0dcf9c677378a2c6e61569931e585cccd2d"
   },
   "model_tier_used": "standard",
   "escalations": 0,
