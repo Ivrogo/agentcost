@@ -1,0 +1,148 @@
+# launch.txt
+
+```text
+repo=/workspace
+root=/tmp/agentcost-verify-20261029103543-3751
+py310=Python 3.10.22
+py311=Python 3.11.18
+py312=Python 3.12.16
+head=93d2a32c1588c0cb85fdf31eea1022561c6236c7
+```
+
+# doctor.txt
+
+Doctor editable y clean en 3.10, 3.11 y 3.12. version=0.1.0. Editable: módulo bajo `/workspace/src/agentcost/`. Clean: módulo bajo el `site-packages` del venv. `agentcost --help` contiene `report`.
+
+# pytest-3.10.txt
+
+```text
+86 passed in 0.90s
+```
+
+exit 0. Comando: `/tmp/agentcost-verify-20261029103543-3751/venv-3.10/bin/pytest -q` desde `/workspace`.
+
+# pytest-3.11.txt
+
+```text
+86 passed in 0.75s
+```
+
+exit 0.
+
+# pytest-3.12.txt
+
+```text
+86 passed in 0.56s
+```
+
+exit 0.
+
+# ruff-check.txt
+
+```text
+All checks passed!
+```
+
+exit 0. Comando: `ruff check .` con el venv de desarrollo 3.12.
+
+# ruff-format.txt
+
+```text
+53 files already formatted
+```
+
+exit 0. Comando: `ruff format --check .` con el mismo venv.
+
+# report-json.txt
+
+CLI limpia 3.12, cwd `/tmp/agentcost-verify-20261029103543-3751/work`.
+
+Comando: `agentcost report examples/research_agent/traces.jsonl --compare A B --format json`
+
+exit 0. stderr vacío. `verdict=better`. A `cost_per_solved_task=0.000498375`. B `cost_per_solved_task=0.0104`. `pairing.mode=paired`, `pairs=8`.
+
+# ci-pass.txt
+
+Comando: `agentcost report examples/research_agent/traces.jsonl --compare A B --fail-if-worse --max-regression 5 --markdown-summary ci-pass.md --github-step-summary`
+
+exit 0. stderr vacío. `ci-pass.md` y `$GITHUB_STEP_SUMMARY` (`ci-pass-step.md`) son el mismo texto.
+
+```markdown
+<!-- agentcost-ci -->
+# agentcost
+
+**Verdict:** better
+**Gate:** pass
+**Mode:** paired (8 pairs)
+**Metric:** cost
+**Difference (A - B):** -$0.008601625
+**95% CI:** [-$0.008896, -$0.0083295375]
+**Includes 0:** no
+**Relative change:** -94.523351648352%
+**Relative 95% CI:** [-94.911764705882%, -93.96694214876%]
+**Threshold:** 5% on the lower bound of the relative 95% CI
+**Compared value:** -94.911764705882%
+**Fail if worse:** yes
+
+A costs less per paired task than B; the bootstrap 95% interval of the mean difference does not include 0.
+
+A is not worse than B on cost. The lower bound of the relative 95% CI is -94.911764705882%, which does not exceed the 5% threshold.
+
+| Metric | A | B |
+| --- | ---: | ---: |
+| Tasks | 8 | 8 |
+| Successful tasks | 8 | 7 |
+| Cost per solved task | $0.000498375 | $0.0104 |
+| Total cost | $0.003987 | $0.0728 |
+```
+
+# ci-fail.txt
+
+Comando: `agentcost report examples/research_agent/traces.jsonl --compare B A --fail-if-worse --max-regression 5 --markdown-summary ci-fail.md`
+
+exit 3. stderr: `B is worse than A on cost: the 95% CI of the mean difference is entirely above 0. The lower bound of the relative 95% CI is 1557.534246575342%, which exceeds the 5% threshold.`
+
+```markdown
+<!-- agentcost-ci -->
+# agentcost
+
+**Verdict:** worse
+**Gate:** regression
+**Mode:** paired (8 pairs)
+**Metric:** cost
+**Difference (B - A):** $0.008601625
+**95% CI:** [$0.0083295375, $0.008896]
+**Includes 0:** no
+**Relative change:** 1725.9342864309%
+**Relative 95% CI:** [1557.534246575342%, 1865.317919075145%]
+**Threshold:** 5% on the lower bound of the relative 95% CI
+**Compared value:** 1557.534246575342%
+**Fail if worse:** yes
+
+B costs more per paired task than A; the bootstrap 95% interval of the mean difference does not include 0.
+
+B is worse than A on cost: the 95% CI of the mean difference is entirely above 0. The lower bound of the relative 95% CI is 1557.534246575342%, which exceeds the 5% threshold.
+
+| Metric | B | A |
+| --- | ---: | ---: |
+| Tasks | 8 | 8 |
+| Successful tasks | 7 | 8 |
+| Cost per solved task | $0.0104 | $0.000498375 |
+| Total cost | $0.0728 | $0.003987 |
+```
+
+La traza del ejemplo no tiene coste de caché, así que el resumen no añade esas filas. El test `test_cache_rows_appear_when_a_trace_has_cache_cost` cubre el desglose cuando el importe no es cero.
+
+# format-invalid.txt
+
+Comando: `agentcost report examples/research_agent/traces.jsonl --compare A B --format yaml`
+
+exit 1. stderr: `--format must be md, json, or both`.
+
+# actionlint.txt
+
+actionlint 1.7.12 sobre `examples/ci/agentcost.yml`. exit 0. Sin avisos.
+
+# scope.txt
+
+Esta máquina es Linux. macOS, Windows y pipx los ejecuta `.github/workflows/ci.yml`.

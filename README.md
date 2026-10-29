@@ -190,7 +190,7 @@ Partial overlap uses only the shared ids. The report names how many tasks were l
 
 If `auto` finds no shared id, the report and stderr both say `No shared task_id between 'A' and 'B'. Using the unpaired comparison.`
 
-JSON `intervals` is still each arm's cost-per-solved-task interval, on the tasks that entered the report. The paired interval is `pairing.metrics.cost`. Those two are not the same number: cost per solved task divides by solved tasks, and the paired mean divides by paired tasks. They can disagree when the success counts differ. `pairing.cost` (and `assess_pairing`) is the result a later gate should read. Traces have no latency field, so latency is not compared.
+JSON `intervals` is still each arm's cost-per-solved-task interval, on the tasks that entered the report. The paired interval is `pairing.metrics.cost`. Those two are not the same number: cost per solved task divides by solved tasks, and the paired mean divides by paired tasks. They can disagree when the success counts differ. `--fail-if-worse` on cost reads that verdict, which in the paired mode comes from `pairing.cost`. `--max-regression` reads the lower bound of `relative_interval` on the chosen metric. Traces have no latency field, so latency is not compared.
 
 ## CLI
 
@@ -199,6 +199,7 @@ agentcost report examples/research_agent/traces.jsonl --compare A B
 agentcost report traces.jsonl --compare A B --format json
 agentcost report traces.jsonl --compare A B --prices ./prices.json --set-price local-model=0.20:0.80
 agentcost report traces.otel.json --compare A B --format both --output report.md --seed 42
+agentcost report candidate.jsonl baseline.jsonl --compare candidate baseline --fail-if-worse --max-regression 5
 ```
 
 | Flag | Default | Meaning |
@@ -213,6 +214,11 @@ agentcost report traces.otel.json --compare A B --format both --output report.md
 | `--paired` | off | Force pairing. Exits 1 when the variants share no `task_id`. |
 | `--unpaired` | off | Force the unpaired comparison, even when task ids match. |
 | `--allow-unpriced` | off | Unknown models cost zero and are named in the report. |
+| `--fail-if-worse` | off | Exit 3 when the first variant is worse on `--metric`. See [CI](#ci). |
+| `--max-regression` | off | Exit 3 when the lower bound of the paired relative CI exceeds this percent (`5` or `5%`). |
+| `--metric` | `cost` | `cost`, `tokens`, or `steps`. Tokens and steps need a paired comparison. |
+| `--markdown-summary` | off | Write the pull-request summary to this path. |
+| `--github-step-summary` | off | Append that summary to `$GITHUB_STEP_SUMMARY` when the variable is set. |
 
 `--format both` refuses an `--output` that already ends in `.json`, because the Markdown and JSON reports would be the same file. The command prints the path to stderr, exits 1, and creates nothing:
 
@@ -222,7 +228,60 @@ agentcost report traces.otel.json --compare A B --format both --output report.md
 
 Ask for both reports with a path that does not end in `.json`. `informe.md` writes Markdown there and JSON to `informe.json`. `informe` writes Markdown to `informe` and JSON to `informe.json`. To write only JSON, use `--format json --output informe.json`.
 
-Expected failures (missing variant, unknown model, bad JSON, or `--format both` with an `--output` that already ends in `.json`) print the message to stderr and exit 1.
+Expected failures (missing variant, unknown model, bad JSON, a gate that cannot be applied, or `--format both` with an `--output` that already ends in `.json`) print the message to stderr and exit 1. A detected regression exits 3. See [CI](#ci).
+
+`report` accepts more than one trace file and concatenates them. Variant names still come from the `variant` field.
+
+## CI
+
+The report can fail a job when the first name in `--compare` is worse than the second. In a pull request, put the candidate first and the baseline second:
+
+```bash
+agentcost report candidate.jsonl baseline.jsonl \
+  --compare candidate baseline \
+  --fail-if-worse \
+  --max-regression 5 \
+  --markdown-summary agentcost-summary.md \
+  --github-step-summary
+```
+
+Each file is a JSONL or OTel export. `candidate` and `baseline` are the `variant` values inside those files, not the file names. Without `--fail-if-worse` and without `--max-regression`, a `worse` verdict still exits 0.
+
+### Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | The report was written. The gate was not requested, or it did not fail. |
+| 1 | The report or the requested gate could not be computed (bad trace, unknown model, unreadable percent, unpaired `--max-regression`, tokens or steps without pairs). This is a tool failure. |
+| 2 | The command line is invalid. Typer uses this for an unknown flag or a missing argument. It is not a regression. |
+| 3 | A regression was detected. The report, and the Markdown summary if requested, were still written. |
+
+### What counts as worse
+
+`--fail-if-worse` uses the report verdict when `--metric` is `cost` (the default).
+
+- Paired: the verdict is `worse` only with at least 5 pairs and a 95% interval of the mean difference (first minus second) entirely above 0. Fewer than 5 pairs stays `inconclusive` and this flag does not fail.
+- Unpaired: the verdict is `worse` when the current arm intervals are disjoint and the first arm is more expensive. The summary repeats the unpaired warning.
+
+`--metric tokens` and `--metric steps` apply that paired rule to `pairing.tokens` and `pairing.steps`. The unpaired verdict does not cover them, so the command exits 1.
+
+`--max-regression` fails when the lower bound of the paired relative 95% interval is strictly greater than the percent. The bound is the optimistic end of the interval, so a noisy point estimate inside the interval does not fail the job. A bound equal to the threshold does not fail. The check does not use the five-pair floor. It needs a paired relative interval: an unpaired report exits 1, and so does a second variant whose relative interval is undefined. It does not fall back to the point estimate.
+
+Passing both flags exits 3 if either check fails. If one check cannot be applied, the command exits 1 even when the other check would have failed.
+
+### Markdown summary
+
+`--markdown-summary PATH` writes a short comment. The path has to be different from `--output` (and from the `.json` file `--format both` would write), because the summary and the report are different documents. It has a table of the two variants (tasks, solved tasks, cost per solved task, total cost), the mode and the pair count, the difference, the interval, the relative change, the threshold, the verdict, and the unpaired warning when there were no pairs. Cache read, cache write, and cache savings are added when either arm has a cache amount, a cache saving, or a cache price that fell back to the input rate. The first line is `<!-- agentcost-ci -->`, which the example workflow uses to update an existing comment.
+
+`--github-step-summary` appends the same text to `$GITHUB_STEP_SUMMARY` when that variable is set. When it is unset, the flag does nothing.
+
+### Example workflow
+
+[`examples/ci/agentcost.yml`](examples/ci/agentcost.yml) installs agentcost, compares the two trace files, comments on the pull request with `actions/github-script`, and fails the job when the command exits 3. It is not under `.github/workflows`, so it does not run in this repository. Copy it into the repository that produces the traces.
+
+The job token needs `contents: read` (checkout) and `pull-requests: write` (the comment). The workflow does not use any other credential. It comments on pull requests opened from the same repository; a fork pull request's token cannot write comments on this event.
+
+The install step is `python -m pip install agentcost`. This change does not publish a package. Until that name exists on PyPI, point the step at a commit you trust, for example `python -m pip install "git+https://github.com/Ivrogo/agentcost.git"`.
 
 ## Library
 

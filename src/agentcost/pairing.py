@@ -1,8 +1,8 @@
 """Paired A/B differences by task_id.
 
-The next comparison gate (a CI failure when the first variant is worse by
-more than a percent threshold) should read :class:`Pairing`, not the
-per-arm intervals. This module does not implement that gate.
+The CI gate reads :class:`Pairing`. ``--fail-if-worse`` on cost uses the
+report verdict, which already uses the paired cost interval.
+``--max-regression`` uses the lower bound of ``relative_interval``.
 """
 
 from __future__ import annotations

@@ -10,6 +10,15 @@ from typing import Annotated
 import typer
 
 from agentcost.errors import AgentCostError, CompareError, PriceError
+from agentcost.gate import (
+    EXIT_REGRESSION,
+    GateDecision,
+    evaluate_gate,
+    parse_max_regression,
+    render_ci_summary,
+    write_ci_summary,
+)
+from agentcost.models import Report
 from agentcost.pairing import RequestedPairing
 from agentcost.parse import load_traces
 from agentcost.pricing import ModelPrice, PriceTable
@@ -45,9 +54,13 @@ def main() -> None:
 
 @app.command()
 def report(
-    path: Annotated[
-        Path,
-        typer.Argument(help="JSONL trace or OTel GenAI JSON export.", exists=True, dir_okay=False),
+    paths: Annotated[
+        list[Path],
+        typer.Argument(
+            help="JSONL trace or OTel GenAI JSON export. Repeat to concatenate files.",
+            exists=True,
+            dir_okay=False,
+        ),
     ],
     compare_variants: Annotated[
         tuple[str, str],
@@ -92,11 +105,40 @@ def report(
         bool,
         typer.Option("--unpaired", help="Compare the arms without matching task_id."),
     ] = False,
+    fail_if_worse: Annotated[
+        bool,
+        typer.Option(
+            "--fail-if-worse",
+            help="Exit 3 when the first variant is worse than the second on --metric.",
+        ),
+    ] = False,
+    max_regression: Annotated[
+        str | None,
+        typer.Option(
+            "--max-regression",
+            help="Exit 3 when the lower bound of the paired relative CI exceeds this percent.",
+        ),
+    ] = None,
+    metric: Annotated[
+        str,
+        typer.Option("--metric", help="Gate metric: cost (default), tokens, or steps."),
+    ] = "cost",
+    markdown_summary: Annotated[
+        Path | None,
+        typer.Option("--markdown-summary", help="Write a pull-request Markdown summary here."),
+    ] = None,
+    github_step_summary: Annotated[
+        bool,
+        typer.Option(
+            "--github-step-summary",
+            help="Append the summary to $GITHUB_STEP_SUMMARY when that variable is set.",
+        ),
+    ] = False,
 ) -> None:
     """Build an A/B cost report from a trace file."""
     try:
         _emit_report(
-            path=path,
+            paths=paths,
             compare_variants=compare_variants,
             output_format=output_format,
             prices=prices,
@@ -107,6 +149,11 @@ def report(
             allow_unpriced=allow_unpriced,
             paired=paired,
             unpaired=unpaired,
+            fail_if_worse=fail_if_worse,
+            max_regression=max_regression,
+            metric=metric,
+            markdown_summary=markdown_summary,
+            github_step_summary=github_step_summary,
         )
     except AgentCostError as exc:
         typer.echo(str(exc), err=True)
@@ -115,7 +162,7 @@ def report(
 
 def _emit_report(
     *,
-    path: Path,
+    paths: list[Path],
     compare_variants: tuple[str, str],
     output_format: str,
     prices: Path | None,
@@ -126,9 +173,17 @@ def _emit_report(
     allow_unpriced: bool,
     paired: bool,
     unpaired: bool,
+    fail_if_worse: bool,
+    max_regression: str | None,
+    metric: str,
+    markdown_summary: Path | None,
+    github_step_summary: bool,
 ) -> None:
     if output_format not in {"md", "json", "both"}:
         raise PriceError("--format must be md, json, or both")
+    if metric not in {"cost", "tokens", "steps"}:
+        raise CompareError("--metric must be cost, tokens, or steps")
+    threshold = None if max_regression is None else parse_max_regression(max_regression)
     pairing = _pairing_mode(paired, unpaired)
     table = PriceTable.bundled()
     if prices is not None:
@@ -137,7 +192,7 @@ def _emit_report(
         table = table.override(
             {name: price for name, price in (_parse_set_price(item) for item in set_price)}
         )
-    events = load_traces(path)
+    events = [event for path in paths for event in load_traces(path)]
     built = compare(
         events,
         compare_variants,
@@ -149,8 +204,22 @@ def _emit_report(
     )
     if built.pairing.warning:
         typer.echo(built.pairing.warning, err=True)
+    decision = evaluate_gate(
+        built,
+        fail_if_worse=fail_if_worse,
+        max_regression=threshold,
+        metric=metric,
+    )
     markdown = render_markdown(built)
     payload = render_json(built)
+    json_path: Path | None = None
+    if output is not None and output_format == "both":
+        json_path = output.with_suffix(".json")
+        if json_path == output:
+            raise AgentCostError(
+                f"--format both would write Markdown and JSON to the same path: {output}"
+            )
+    _reject_summary_collision(markdown_summary, output, json_path)
     if output is None:
         if output_format in {"md", "both"}:
             typer.echo(markdown, nl=False)
@@ -158,20 +227,46 @@ def _emit_report(
             typer.echo()
         if output_format in {"json", "both"}:
             typer.echo(payload, nl=False)
+        _finish_gate(built, decision, markdown_summary, github_step_summary)
         return
-    json_path: Path | None = None
-    if output_format == "both":
-        json_path = output.with_suffix(".json")
-        if json_path == output:
-            raise AgentCostError(
-                f"--format both would write Markdown and JSON to the same path: {output}"
-            )
     if output_format == "json":
         output.write_text(payload, encoding="utf-8", newline="\n")
+        _finish_gate(built, decision, markdown_summary, github_step_summary)
         return
     output.write_text(markdown, encoding="utf-8", newline="\n")
     if json_path is not None:
         json_path.write_text(payload, encoding="utf-8", newline="\n")
+    _finish_gate(built, decision, markdown_summary, github_step_summary)
+
+
+def _reject_summary_collision(summary: Path | None, *outputs: Path | None) -> None:
+    if summary is None:
+        return
+    target = summary.resolve()
+    for candidate in outputs:
+        if candidate is not None and candidate.resolve() == target:
+            raise CompareError(
+                f"--markdown-summary would overwrite the report at the same path: {candidate}"
+            )
+
+
+def _finish_gate(
+    built: Report,
+    decision: GateDecision,
+    markdown_summary: Path | None,
+    github_step_summary: bool,
+) -> None:
+    if markdown_summary is not None or github_step_summary:
+        write_ci_summary(
+            render_ci_summary(built, decision),
+            markdown_summary,
+            github=github_step_summary,
+        )
+    if decision.outcome == "error":
+        raise CompareError(decision.reason)
+    if decision.outcome == "regression":
+        typer.echo(decision.reason, err=True)
+        raise typer.Exit(code=EXIT_REGRESSION)
 
 
 def _pairing_mode(paired: bool, unpaired: bool) -> RequestedPairing:
