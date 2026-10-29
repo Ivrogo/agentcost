@@ -117,7 +117,17 @@ def report(
         bool,
         typer.Option(
             "--fail-if-worse",
-            help="Exit 3 when the first variant is worse than the second on --metric.",
+            help=(
+                "Exit 3 when the first variant is worse than the second on --metric. "
+                "An inconclusive verdict exits 0 and warns on stderr."
+            ),
+        ),
+    ] = False,
+    fail_if_inconclusive: Annotated[
+        bool,
+        typer.Option(
+            "--fail-if-inconclusive",
+            help="Exit 4 when the verdict is inconclusive. Requires --fail-if-worse.",
         ),
     ] = False,
     max_regression: Annotated[
@@ -158,6 +168,7 @@ def report(
             paired=paired,
             unpaired=unpaired,
             fail_if_worse=fail_if_worse,
+            fail_if_inconclusive=fail_if_inconclusive,
             max_regression=max_regression,
             metric=metric,
             markdown_summary=markdown_summary,
@@ -182,11 +193,14 @@ def _emit_report(
     paired: bool,
     unpaired: bool,
     fail_if_worse: bool,
+    fail_if_inconclusive: bool,
     max_regression: str | None,
     metric: str,
     markdown_summary: Path | None,
     github_step_summary: bool,
 ) -> None:
+    if fail_if_inconclusive and not fail_if_worse:
+        raise CompareError("--fail-if-inconclusive requires --fail-if-worse.")
     if output_format not in {"md", "json", "both"}:
         raise PriceError("--format must be md, json, or both")
     if metric not in {"cost", "tokens", "steps"}:
@@ -217,6 +231,7 @@ def _emit_report(
         fail_if_worse=fail_if_worse,
         max_regression=threshold,
         metric=metric,
+        fail_if_inconclusive=fail_if_inconclusive,
     )
     markdown = render_markdown(built)
     payload = render_json(built)
@@ -272,6 +287,11 @@ def _finish_gate(
         )
     if decision.outcome == "error":
         raise CompareError(decision.reason)
+    if decision.outcome == "inconclusive":
+        typer.echo(decision.reason, err=True)
+        if decision.exit_code != 0:
+            raise typer.Exit(code=decision.exit_code)
+        return
     if decision.outcome == "regression":
         typer.echo(decision.reason, err=True)
         raise typer.Exit(code=EXIT_REGRESSION)

@@ -1,7 +1,10 @@
 """CI gate for ``agentcost report``.
 
-Exit 0 when the report is fine. Exit 3 when the first variant is a regression.
-Exit 1 stays the caller's input error. Typer still uses 2 for a bad command line.
+Exit 0 when the report is fine. An inconclusive verdict also exits 0, with a
+warning, unless the caller asked for ``--fail-if-inconclusive``. Exit 3 when
+the first variant is a regression. Exit 4 when that flag is set and the verdict
+is inconclusive. Exit 1 stays the caller's input error. Typer still uses 2 for
+a bad command line.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from agentcost.report import (
 
 EXIT_OK = 0
 EXIT_REGRESSION = 3
+EXIT_INCONCLUSIVE = 4
 _METRICS = ("cost", "tokens", "steps")
 
 
@@ -64,6 +68,7 @@ def evaluate_gate(
     fail_if_worse: bool,
     max_regression: Decimal | None,
     metric: str = "cost",
+    fail_if_inconclusive: bool = False,
 ) -> GateDecision:
     """Decide whether the first variant fails the gate.
 
@@ -72,6 +77,12 @@ def evaluate_gate(
     difference sits entirely above 0. Tokens and steps use that same paired
     rule on ``report.pairing``. ``max_regression`` compares the lower bound of
     the paired relative interval and does not use the five-pair floor.
+
+    An ``inconclusive`` cost verdict is not an input error. With
+    ``fail_if_worse`` it exits 0 and names the reason, or 4 when
+    ``fail_if_inconclusive`` is set. A threshold that does find a regression
+    still exits 3. A threshold that cannot be applied stays an input error
+    when the verdict is not inconclusive.
     """
     if metric not in _METRICS:
         raise CompareError("--metric must be cost, tokens, or steps")
@@ -90,6 +101,8 @@ def evaluate_gate(
     outcome = "pass"
     compared: Decimal | None = None
     applied = False
+    blocked: str | None = None
+    threshold_sentence: str | None = None
     if fail_if_worse:
         worse, error, sentence = _worse_check(report, metric)
         if error is not None:
@@ -98,12 +111,38 @@ def evaluate_gate(
         if worse:
             outcome = "regression"
     if max_regression is not None:
-        status, compared, applied, sentence = _threshold_check(report, metric, max_regression)
+        status, bound, bound_applied, sentence = _threshold_check(report, metric, max_regression)
         if status == "error":
-            return _error(report, metric, fail_if_worse, max_regression, sentence)
-        parts.append(sentence)
-        if status == "regression":
-            outcome = "regression"
+            # A check that cannot be applied still fails the command when the
+            # other check already found a regression. An inconclusive verdict
+            # only replaces that input error when nothing else failed.
+            if outcome != "regression" and fail_if_worse and report.verdict is Verdict.INCONCLUSIVE:
+                blocked = sentence
+            else:
+                return _error(report, metric, fail_if_worse, max_regression, sentence)
+        else:
+            compared = bound
+            applied = bound_applied
+            threshold_sentence = sentence
+            parts.append(sentence)
+            if status == "regression":
+                outcome = "regression"
+    if outcome != "regression" and fail_if_worse and report.verdict is Verdict.INCONCLUSIVE:
+        detail = report.verdict_reason
+        if blocked is not None:
+            detail = f"{detail} {blocked}"
+        elif threshold_sentence is not None:
+            detail = f"{detail} {threshold_sentence}"
+        return GateDecision(
+            outcome="inconclusive",
+            exit_code=EXIT_INCONCLUSIVE if fail_if_inconclusive else EXIT_OK,
+            reason=f"Inconclusive: {detail}",
+            metric=metric,
+            fail_if_worse=fail_if_worse,
+            threshold=max_regression,
+            compared=compared,
+            threshold_applied=applied,
+        )
     exit_code = EXIT_REGRESSION if outcome == "regression" else EXIT_OK
     return GateDecision(
         outcome=outcome,

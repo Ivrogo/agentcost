@@ -434,6 +434,7 @@ def test_help_lists_the_gate_flags() -> None:
     assert result.exit_code == 0
     plain = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
     assert "--fail-if-worse" in plain
+    assert "--fail-if-inconclusive" in plain
     assert "--max-regression" in plain
     assert "--markdown-summary" in plain
     assert "--github-step-summary" in plain
@@ -447,6 +448,7 @@ def test_example_workflow_is_a_copyable_gate() -> None:
     assert "contents: read" in text
     assert "--fail-if-worse" in text
     assert "--max-regression" in text
+    assert "Add --fail-if-inconclusive" in text
     assert "--markdown-summary" in text
     assert "--github-step-summary" in text
     assert "actions/github-script@" in text
@@ -509,8 +511,9 @@ def test_imported_codex_fixtures_do_not_look_like_a_regression(tmp_path: Path) -
         ],
     )
     assert result.exit_code == 0, result.output
+    assert "Inconclusive:" in result.stderr
     text = summary.read_text(encoding="utf-8")
-    assert "**Gate:** pass" in text
+    assert "**Gate:** inconclusive" in text
     assert "**Mode:** unpaired (0 pairs)" in text
     assert "No shared task_id" in text
     blocked = runner.invoke(
@@ -578,3 +581,149 @@ def test_imported_paired_session_can_trip_the_percent_gate(tmp_path: Path) -> No
     assert "**Gate:** regression" in text
     assert "**Mode:** paired (1 pair)" in text
     assert "exceeds the 5% threshold" in text
+
+
+def test_inconclusive_fail_if_worse_exits_zero_and_warns(tmp_path: Path) -> None:
+    traces = tmp_path / "traces.jsonl"
+    _pairs(traces, [(2_000_000, 2_000_000)] * 4)
+    summary = tmp_path / "summary.md"
+    result = _run(traces, "--fail-if-worse", "--markdown-summary", str(summary))
+    assert result.exit_code == 0, result.output
+    assert result.exit_code != 1
+    assert "Inconclusive: Fewer than 5 paired tasks (4)." in result.stderr
+    assert "**Verdict:** inconclusive" in result.stdout
+    text = summary.read_text(encoding="utf-8")
+    assert "**Gate:** inconclusive" in text
+    assert "**Verdict:** inconclusive" in text
+
+
+def test_inconclusive_with_flag_exits_four_and_keeps_the_report(tmp_path: Path) -> None:
+    traces = tmp_path / "traces.jsonl"
+    _pairs(traces, [(2_000_000, 2_000_000)] * 4)
+    summary = tmp_path / "summary.md"
+    result = _run(
+        traces,
+        "--fail-if-worse",
+        "--fail-if-inconclusive",
+        "--markdown-summary",
+        str(summary),
+    )
+    assert result.exit_code == 4, result.output
+    assert "Inconclusive: Fewer than 5 paired tasks (4)." in result.stderr
+    assert "**Verdict:** inconclusive" in result.stdout
+    text = summary.read_text(encoding="utf-8")
+    assert "**Gate:** inconclusive" in text
+    assert "**Verdict:** inconclusive" in text
+
+
+def test_unpaired_inconclusive_threshold_warns_instead_of_exiting_one(tmp_path: Path) -> None:
+    traces = tmp_path / "traces.jsonl"
+    lines = []
+    for index in range(2):
+        for variant, task_id in (("A", f"a{index}"), ("B", f"b{index}")):
+            lines.append(
+                json.dumps(
+                    {
+                        "task_id": task_id,
+                        "variant": variant,
+                        "run_id": "r",
+                        "kind": "llm",
+                        "tokens": {"input": 1_000_000, "output": 0},
+                        "model": "m",
+                        "status": "ok",
+                    }
+                )
+            )
+    traces.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    summary = tmp_path / "summary.md"
+    warned = _run(
+        traces,
+        "--fail-if-worse",
+        "--max-regression",
+        "5",
+        "--markdown-summary",
+        str(summary),
+    )
+    assert warned.exit_code == 0, warned.output
+    assert warned.exit_code != 1
+    assert "No shared task_id" in warned.stderr
+    assert "Inconclusive:" in warned.stderr
+    assert "no relative CI" in warned.stderr
+    text = summary.read_text(encoding="utf-8")
+    assert "**Gate:** inconclusive" in text
+    assert "**Gate:** error" not in text
+    failed = _run(
+        traces,
+        "--fail-if-worse",
+        "--fail-if-inconclusive",
+        "--max-regression",
+        "5",
+        "--markdown-summary",
+        str(summary),
+    )
+    assert failed.exit_code == 4, failed.output
+    assert "no relative CI" in failed.stderr
+    assert "**Verdict:** inconclusive" in failed.stdout
+
+
+def test_threshold_regression_still_exits_three_when_the_verdict_is_inconclusive(
+    tmp_path: Path,
+) -> None:
+    traces = tmp_path / "traces.jsonl"
+    _pairs(traces, [(8_000_000, 4_000_000)] * 4)
+    held = _run(traces, "--fail-if-worse", "--max-regression", "5")
+    assert held.exit_code == 3, held.output
+    assert held.exit_code != 4
+    forced = _run(
+        traces,
+        "--fail-if-worse",
+        "--fail-if-inconclusive",
+        "--max-regression",
+        "5",
+    )
+    assert forced.exit_code == 3, forced.output
+    assert "**Verdict:** inconclusive" in forced.stdout
+
+
+def test_fail_if_inconclusive_without_fail_if_worse_is_a_usage_error(tmp_path: Path) -> None:
+    traces = tmp_path / "traces.jsonl"
+    _pairs(traces, [(8_000_000, 4_000_000)] * 5)
+    alone = _run(traces, "--fail-if-inconclusive")
+    assert alone.exit_code == 1
+    assert alone.exit_code != 4
+    assert "--fail-if-inconclusive requires --fail-if-worse." in alone.stderr
+    assert alone.stdout == ""
+    with_threshold = _run(traces, "--fail-if-inconclusive", "--max-regression", "5")
+    assert with_threshold.exit_code == 1
+    assert with_threshold.exit_code != 3
+    assert "--fail-if-inconclusive requires --fail-if-worse." in with_threshold.stderr
+    assert with_threshold.stdout == ""
+
+
+def test_unpriced_model_still_exits_one(tmp_path: Path) -> None:
+    traces = tmp_path / "traces.jsonl"
+    lines = []
+    for variant in ("A", "B"):
+        lines.append(
+            json.dumps(
+                {
+                    "task_id": "t",
+                    "variant": variant,
+                    "run_id": "r",
+                    "kind": "llm",
+                    "tokens": {"input": 10, "output": 10},
+                    "model": "missing-model",
+                    "status": "ok",
+                }
+            )
+        )
+    traces.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    result = runner.invoke(
+        app,
+        ["report", str(traces), "--compare", "A", "B", "--fail-if-worse"],
+    )
+    assert result.exit_code == 1
+    assert result.exit_code != 3
+    assert result.exit_code != 4
+    assert "missing-model" in result.stderr
+    assert result.stdout == ""

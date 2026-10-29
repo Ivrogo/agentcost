@@ -1,0 +1,111 @@
+# launch.txt
+
+```text
+repo=/workspace
+root=/tmp/agentcost-verify-20261029110941-3533
+py310=Python 3.10.22
+py311=Python 3.11.18
+py312=Python 3.12.16
+```
+
+# doctor.txt
+
+Doctor editable y clean en 3.10, 3.11 y 3.12. version=0.1.0. Editable: módulo bajo `/workspace/src/agentcost/`. Clean: módulo bajo el `site-packages` del venv. `agentcost --help` contiene `report`.
+
+# pytest-3.10.txt
+
+```text
+107 passed in 1.28s
+```
+
+exit 0. Comando: `/tmp/agentcost-verify-20261029110941-3533/venv-3.10/bin/pytest -q` desde `/workspace`.
+
+Tras el aserto del comentario en `examples/ci/agentcost.yml`, la misma orden volvió a salir 0: 107 passed.
+
+# pytest-3.11.txt
+
+```text
+107 passed in 1.06s
+```
+
+exit 0. Repetición tras el aserto del comentario: 107 passed, exit 0.
+
+# pytest-3.12.txt
+
+```text
+107 passed in 0.80s
+```
+
+exit 0. Repetición tras el aserto del comentario: 107 passed, exit 0.
+
+# ruff-check.txt
+
+`ruff check .` con el venv 3.12. exit 0. Texto: `All checks passed`.
+
+# ruff-format.txt
+
+```text
+66 files already formatted
+```
+
+exit 0. No aparece `No Python files found`.
+
+# clean-install.txt
+
+`python -m pip install .` en venv nuevo de 3.10, 3.11 y 3.12. Doctor `clean` en los tres: version=0.1.0, módulo dentro del venv.
+
+# report-json.txt
+
+Comando, cwd `$ROOT/work`, venv limpio 3.12:
+
+`agentcost report examples/research_agent/traces.jsonl --compare A B --format json`
+
+exit 0. stderr vacío. `"verdict": "better"`. A `cost_per_solved_task` 0.000498375. B 0.0104. `pairing.mode` `paired`, `pairs` 8.
+
+# ci-pass.txt
+
+`agentcost report examples/research_agent/traces.jsonl --compare A B --fail-if-worse --max-regression 5 --markdown-summary ci-pass.md --github-step-summary`
+
+exit 0. stderr vacío. El Markdown y `$GITHUB_STEP_SUMMARY` son el mismo texto: `<!-- agentcost-ci -->`, `**Verdict:** better`, `**Gate:** pass`, `**Mode:** paired (8 pairs)`.
+
+# ci-fail.txt
+
+`agentcost report examples/research_agent/traces.jsonl --compare B A --fail-if-worse --max-regression 5 --markdown-summary ci-fail.md`
+
+exit 3. Stdout contiene `**Verdict:** worse`. El Markdown contiene `**Gate:** regression` y `**Mode:** paired (8 pairs)`. Stderr no está vacío.
+
+# ci-inconclusive.txt
+
+`agentcost report examples/cache_usage/traces.jsonl --compare openai anthropic --fail-if-worse --max-regression 5`
+
+exit 0. Stdout contiene `**Verdict:** inconclusive`. Stderr:
+
+```text
+No shared task_id between 'openai' and 'anthropic'. Using the unpaired comparison.
+Inconclusive: Fewer than 5 tasks in at least one variant (openai=1, anthropic=1). --max-regression needs a paired comparison. This report is unpaired, so there is no relative CI.
+```
+
+# ci-inconclusive-fail.txt
+
+`agentcost report examples/cache_usage/traces.jsonl --compare openai anthropic --fail-if-worse --fail-if-inconclusive`
+
+exit 4. Stdout contiene `**Verdict:** inconclusive`. Stderr:
+
+```text
+No shared task_id between 'openai' and 'anthropic'. Using the unpaired comparison.
+Inconclusive: Fewer than 5 tasks in at least one variant (openai=1, anthropic=1).
+```
+
+# ci-flag-alone.txt
+
+`agentcost report examples/research_agent/traces.jsonl --compare A B --fail-if-inconclusive`
+
+exit 1. Stdout vacío. Stderr: `--fail-if-inconclusive requires --fail-if-worse.`
+
+# help-report.txt
+
+`agentcost report --help` en el venv limpio 3.12. exit 0. Stdout contiene `--fail-if-worse` y `--fail-if-inconclusive`.
+
+# scope.txt
+
+Esta máquina es Linux. macOS, Windows y pipx los ejecuta `.github/workflows/ci.yml`. Un fichero que no existe y un flag desconocido siguen saliendo 2 por Typer; no se reasignan a 1. No se ejecutó la matriz de CI en esta máquina.
